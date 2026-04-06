@@ -37,6 +37,7 @@ dependencies:
   shared_preferences: ^2.2.0
   google_fonts: ^6.2.0
   lucide_icons: ^0.257.0
+  dynamic_color: ^1.8.1
 
 dev_dependencies:
   flutter_test:
