@@ -87,7 +87,7 @@ class HomeScreen extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 18,
                 // Modern opacity handling with .withValues
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
