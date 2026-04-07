@@ -1,26 +1,11 @@
-# Ignore platform-specific vendor code
-android/* linguist-vendored
-ios/* linguist-vendored
-windows/* linguist-vendored
-linux/* linguist-vendored
-macos/* linguist-vendored
-web/* linguist-vendored
+# Ignore all platform-specific folders for language statistics
+android/**/* linguist-vendored
+ios/**/* linguist-vendored
+windows/**/* linguist-vendored
+linux/**/* linguist-vendored
+macos/**/* linguist-vendored
+web/**/* linguist-vendored
 
-# Ignore generated files and locks
-pubspec.lock linguist-generated
-.dart_tool/* linguist-vendored
-.idea/* linguist-vendored
-.vscode/* linguist-vendored
-
-# Ignore build_runner generated files
-*.g.dart linguist-generated
-*.freezed.dart linguist-generated
-*.mocks.dart linguist-generated
-
-# Ignore assets and build outputs
-assets/* linguist-vendored
-build/* linguist-vendored
-
-# Ignore Flutter plugin files
-.flutter-plugins linguist-vendored
-.flutter-plugins-dependencies linguist-vendored
+# Also ignore generated build files
+build/**/* linguist-vendored
+.dart_tool/**/* linguist-vendored
