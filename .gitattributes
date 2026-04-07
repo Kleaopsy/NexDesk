@@ -20,3 +20,7 @@ pubspec.lock linguist-generated
 # Ignore assets and build outputs
 assets/* linguist-vendored
 build/* linguist-vendored
+
+# Ignore Flutter plugin files
+.flutter-plugins linguist-vendored
+.flutter-plugins-dependencies linguist-vendored
