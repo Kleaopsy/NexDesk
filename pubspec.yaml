@@ -38,6 +38,11 @@ dependencies:
   google_fonts: ^6.2.0
   lucide_icons: ^0.257.0
   dynamic_color: ^1.8.1
+  macos_window_utils: ^1.9.1
+  cloud_firestore: ^6.2.0
+  firebase_auth: ^6.3.0
+  firebase_core: ^4.6.0
+  window_manager: ^0.5.1
 
 dev_dependencies:
   flutter_test:
