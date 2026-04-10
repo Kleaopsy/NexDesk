@@ -372,10 +372,7 @@ class _SidebarFooter extends StatelessWidget {
                           : 'Sign in to sync',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
-                      ),
+                      style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
