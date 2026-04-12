@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../features/widgets/auth_layer.dart';
+import 'package:nexdesk/features/widgets/auth_layer.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/settings/settings_screen.dart';
 import 'dart:io';
@@ -34,6 +34,7 @@ const _pages = [
 const double _tileHeight = 36;
 const double _tileSpacing = 2;
 const double _sidebarPaddingV = 8;
+const double _sideBarWidth = 180;
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -60,13 +61,16 @@ class _AppShellState extends State<AppShell> {
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
-              // Slow down the animation for better visibility
+              // Smooth transition between screens
               switchInCurve: Curves.easeInOutCubic,
               switchOutCurve: Curves.easeInOutCubic,
 
               transitionBuilder: (child, animation) {
                 final slideAnimation = Tween<Offset>(
-                  begin: const Offset(0.1, 0.0), // Çok hafif sağdan başla
+                  begin: const Offset(
+                    0.1,
+                    0.0,
+                  ), // Start slightly from the right
                   end: Offset.zero,
                 ).animate(animation);
 
@@ -99,7 +103,7 @@ class _Sidebar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      width: 180,
+      width: _sideBarWidth,
       margin: const EdgeInsets.fromLTRB(5, 5, 0, 5),
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.72),
@@ -120,12 +124,13 @@ class _Sidebar extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         child: Column(
           children: [
+            // Safe area adjustment for macOS title bar
             SizedBox(height: Platform.isMacOS ? 40 : 10),
             const _SidebarHeader(),
             Expanded(
               child: _SidebarNav(selected: selected, onSelect: onSelect),
             ),
-            const _SidebarFooter(),
+            const _SidebarFooter(collapsed: false),
           ],
         ),
       ),
@@ -207,6 +212,7 @@ class _SidebarNav extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Stack(
         children: [
+          // Background selection indicator
           AnimatedPositioned(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeInOutCubic,
@@ -273,7 +279,6 @@ class _NavTileState extends State<_NavTile> {
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          // Transparent background — indicator layer handles active color
           child: Container(
             height: _tileHeight,
             decoration: BoxDecoration(
@@ -309,95 +314,271 @@ class _NavTileState extends State<_NavTile> {
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
+
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter();
+  final bool collapsed;
+
+  const _SidebarFooter({required this.collapsed});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    // Listen to authentication state changes in real-time
     return StreamBuilder<User?>(
-      // Listening to the global auth state
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         final user = snapshot.data;
-        final bool isLoggedIn = snapshot.hasData;
-
-        // Dynamic Avatar Logic
-        final Widget avatar = CircleAvatar(
-          radius: 14,
-          backgroundColor: cs.primaryContainer,
-          backgroundImage: (isLoggedIn && user?.photoURL != null)
-              ? NetworkImage(user!.photoURL!)
-              : null,
-          child: (!isLoggedIn || user?.photoURL == null)
-              ? Icon(Icons.person, size: 16, color: cs.onPrimaryContainer)
-              : null,
-        );
+        final bool isLoggedIn = user != null;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: collapsed ? 10 : 14,
+            vertical: 12,
+          ),
           decoration: BoxDecoration(
             border: Border(
               top: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.25),
-                width: 0.6,
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+                width: 0.5,
               ),
             ),
           ),
-          child: Row(
-            children: [
-              avatar,
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      isLoggedIn
-                          ? (user?.displayName ?? 'NexUser')
-                          : 'Guest Mode',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                      ),
+          child: isLoggedIn
+              ? _buildUserView(
+                  context,
+                  cs,
+                  user,
+                ) // Show user profile if logged in
+              : _buildLoginButton(context, cs), // Show sign-in button if not
+        );
+      },
+    );
+  }
+
+  // UI shown when a user is authenticated
+  Widget _buildUserView(BuildContext context, ColorScheme cs, User user) {
+    final avatar = GestureDetector(
+      onTap: () => _showMenu(context, cs),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: CircleAvatar(
+          radius: 14,
+          backgroundColor: cs.primaryContainer,
+          child: Text(
+            _initials(user.displayName ?? user.email ?? 'U'),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: cs.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (collapsed) return Center(child: avatar);
+
+    return Row(
+      children: [
+        avatar,
+        const SizedBox(width: 10),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _showMenu(context, cs),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.displayName ?? 'User',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
                     ),
-                    Text(
-                      isLoggedIn
-                          ? (user?.email ?? 'Connected')
-                          : 'Sign in to sync',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    user.email ?? '',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              // Action Button for Login/Logout
-              IconButton(
-                onPressed: () {
-                  if (!isLoggedIn) {
-                    // Calling our custom auth layer
-                    AuthLayer.show(context);
-                  } else {
-                    // Show logout/profile menu
-                    debugPrint("Profile menu open");
-                  }
-                },
-                icon: Icon(
-                  isLoggedIn ? Icons.more_vert : Icons.login_rounded,
-                  size: 16,
-                  color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => _showMenu(context, cs),
+          child: Icon(
+            Icons.more_horiz_rounded,
+            size: 16,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // UI shown when no user is authenticated
+  Widget _buildLoginButton(BuildContext context, ColorScheme cs) {
+    return InkWell(
+      onTap: () {
+        try {
+          // Trigger the authentication layer
+          AuthLayer.show(context);
+        } catch (e) {
+          // ignore: avoid_print
+          print("Error opening AuthLayer: $e");
+        }
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: collapsed
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
+          children: [
+            Icon(Icons.login_rounded, size: 18, color: cs.primary),
+            if (!collapsed) ...[
+              const SizedBox(width: 12),
+              Text(
+                "Sign In",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cs.primary,
                 ),
               ),
             ],
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Extract initials from user name or email
+  String _initials(String value) {
+    final parts = value.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return value.isNotEmpty ? value[0].toUpperCase() : 'U';
+  }
+
+  // Show user settings/logout menu
+  void _showMenu(BuildContext context, ColorScheme cs) {
+    final box = context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+
+    // showMenu yerine showGeneralDialog kullanarak animasyonu kendimiz yazıyoruz
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "UserMenu",
+      barrierColor:
+          Colors.transparent, // Arka planı karartma, sadece menü gözüksün
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        // Hafifçe yukarı kayma ve büyüme efekti (Scale & Slide)
+        final curve = CurvedAnimation(
+          parent: anim1,
+          curve: Curves.easeOutCubic,
+        );
+
+        return Stack(
+          children: [
+            Positioned(
+              left: offset.dx,
+              width: box
+                  .size
+                  .width, // Menu size for simple positioning, can be adjusted for better alignment
+              bottom: (MediaQuery.of(context).size.height - offset.dy),
+              child: FadeTransition(
+                opacity: anim1,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.92, end: 1.0).animate(curve),
+                  alignment:
+                      Alignment.bottomLeft, // Menü alttan yukarı doğru büyür
+                  child: Material(
+                    color: cs.surface.withValues(
+                      alpha: 0.95,
+                    ), // Arka plan rengi
+                    elevation: 12,
+                    shadowColor: Colors.black26,
+                    borderRadius: BorderRadius.circular(14),
+                    // Material içinde border: ... tanımlanamaz, o yüzden sildik.
+                    child: Container(
+                      width: 160,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        // KENARLIĞI BURADA TANIMLIYORUZ
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: cs.outlineVariant.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildMenuAction(
+                            icon: Icons.logout_rounded,
+                            label: 'Log out',
+                            color: cs.error,
+                            onTap: () {
+                              Navigator.pop(context);
+                              _handleLogout(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  // Menü öğeleri için yardımcı widget
+  Widget _buildMenuAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

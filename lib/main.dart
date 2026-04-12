@@ -1,46 +1,38 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:macos_window_utils/macos/ns_window_button_type.dart';
-import 'package:macos_window_utils/macos_window_utils.dart';
-import 'package:macos_window_utils/window_manipulator.dart';
 import 'dart:io';
 import 'app/shell.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:macos_window_utils/macos/ns_window_button_type.dart';
+import 'package:macos_window_utils/macos_window_utils.dart';
+import 'package:macos_window_utils/window_manipulator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (Platform.isMacOS) {
     await WindowManipulator.initialize();
-
     await WindowManipulator.makeTitlebarTransparent();
     await WindowManipulator.enableFullSizeContentView();
-
-    // Hide the title bar (we'll make our own in the app)
     await WindowManipulator.hideTitle();
-
-    // Close button (Red)
     await WindowManipulator.overrideStandardWindowButtonPosition(
       buttonType: NSWindowButtonType.closeButton,
       offset: const Offset(15, 15),
     );
-
-    // Minimize button (Yellow)
     await WindowManipulator.overrideStandardWindowButtonPosition(
       buttonType: NSWindowButtonType.miniaturizeButton,
       offset: const Offset(40, 15),
     );
-
-    // Fullscreen button (Green)
     await WindowManipulator.overrideStandardWindowButtonPosition(
       buttonType: NSWindowButtonType.zoomButton,
       offset: const Offset(65, 15),
     );
   }
+
   runApp(const NexDeskApp());
 }
 
@@ -77,7 +69,15 @@ class NexDeskApp extends StatelessWidget {
             textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
             useMaterial3: true,
           ),
-          home: const AppShell(),
+          home: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              // snapshot.data boş değilse kullanıcı içerde demektir.
+              // AppShell içindeki sidebar veya login butonu bu duruma göre
+              // kendini otomatik olarak yenileyecektir.
+              return const AppShell();
+            },
+          ),
         );
       },
     );
