@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nexdesk/features/widgets/auth_layer.dart';
 import '../features/dashboard/dashboard_screen.dart';
+import '../features/myprojects/my_projects_screen.dart';
+import '../features/tasks/tasks_screen.dart';
+import '../features/notes/notes_screen.dart';
+import '../features/archive/archive_screen.dart';
 import '../features/settings/settings_screen.dart';
 import 'dart:io';
 
@@ -21,6 +25,30 @@ const _pages = [
     Icons.grid_view_rounded,
     'Dashboard',
     DashboardScreen(),
+  ),
+  _NavItem(
+    Icons.rocket_launch_outlined,
+    Icons.rocket_launch_rounded,
+    'My Projects',
+    ProjectsScreen(), // Firebase'den projeleri çekeceğimiz ana yer
+  ),
+  _NavItem(
+    Icons.checklist_rtl_rounded,
+    Icons.checklist_rounded,
+    'Tasks',
+    TasksScreen(), // Kanban veya liste görünümü
+  ),
+  _NavItem(
+    Icons.sticky_note_2_outlined,
+    Icons.sticky_note_2_rounded,
+    'Quick Notes',
+    NotesScreen(), // Kod parçacıkları veya fikirler için
+  ),
+  _NavItem(
+    Icons.archive_outlined,
+    Icons.archive_rounded,
+    'Archive',
+    ArchiveScreen(),
   ),
   _NavItem(
     Icons.settings_outlined,
@@ -107,7 +135,7 @@ class _Sidebar extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(5, 5, 0, 5),
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: cs.outlineVariant.withValues(alpha: 0.22),
           width: 1,

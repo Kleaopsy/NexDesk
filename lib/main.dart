@@ -9,12 +9,18 @@ import 'firebase_options.dart';
 import 'package:macos_window_utils/macos/ns_window_button_type.dart';
 import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:macos_window_utils/window_manipulator.dart';
+import 'core/theme_provider.dart';
+
+// Single global instance — shared across entire app
+final themeProvider = ThemeProvider();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (Platform.isMacOS) {
+    // Cancel all pending async operations on exit
+    ProcessSignal.sigterm.watch().listen((_) => exit(0));
     await WindowManipulator.initialize();
     await WindowManipulator.makeTitlebarTransparent();
     await WindowManipulator.enableFullSizeContentView();
@@ -25,19 +31,41 @@ void main() async {
     );
     await WindowManipulator.overrideStandardWindowButtonPosition(
       buttonType: NSWindowButtonType.miniaturizeButton,
-      offset: const Offset(40, 15),
+      offset: const Offset(38, 15),
     );
     await WindowManipulator.overrideStandardWindowButtonPosition(
       buttonType: NSWindowButtonType.zoomButton,
-      offset: const Offset(65, 15),
+      offset: const Offset(61, 15),
     );
   }
 
   runApp(const NexDeskApp());
 }
 
-class NexDeskApp extends StatelessWidget {
+class NexDeskApp extends StatefulWidget {
   const NexDeskApp({super.key});
+
+  @override
+  State<NexDeskApp> createState() => _NexDeskAppState();
+}
+
+class _NexDeskAppState extends State<NexDeskApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Listen to the global instance — rebuild when theme changes
+    themeProvider.addListener(_onThemeChange);
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    themeProvider.removeListener(_onThemeChange);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +76,7 @@ class NexDeskApp extends StatelessWidget {
         return MaterialApp(
           title: 'NexDesk',
           debugShowCheckedModeBanner: false,
-          themeMode: ThemeMode.system,
+          themeMode: themeProvider.mode,
           theme: ThemeData(
             colorScheme:
                 lightDynamic ??
@@ -71,12 +99,7 @@ class NexDeskApp extends StatelessWidget {
           ),
           home: StreamBuilder<User?>(
             stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, snapshot) {
-              // snapshot.data boş değilse kullanıcı içerde demektir.
-              // AppShell içindeki sidebar veya login butonu bu duruma göre
-              // kendini otomatik olarak yenileyecektir.
-              return const AppShell();
-            },
+            builder: (context, snapshot) => const AppShell(),
           ),
         );
       },

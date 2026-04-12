@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 
 // Auth pages enum
 enum _AuthPage { signIn, signUp, forgotPassword, verifyCode, resetPassword }
@@ -323,16 +324,44 @@ class _AuthLayerState extends State<AuthLayer> {
   }
 
   Widget _buildPageView(ColorScheme cs, bool isDark) {
-    return PageView(
-      controller: _pageController,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        _buildSignInPage(cs, isDark),
-        _buildSignUpPage(cs, isDark),
-        _buildForgotPasswordPage(cs, isDark),
-        _buildVerifyCodePage(cs, isDark),
-        _buildResetPasswordPage(cs, isDark),
-      ],
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          // Şu anki sayfa indexine göre ilgili fonksiyonu çağırıyoruz
+          final currentPage = _pageController.page?.round() ?? 0;
+
+          if (_isLoading) return; // Yükleniyorsa işlem yapma
+
+          switch (currentPage) {
+            case 0:
+              _handleSignIn();
+              break;
+            case 1:
+              _handleSignUp();
+              break;
+            case 2:
+              _handleSendResetEmail();
+              break;
+            case 3:
+              _handleVerifyCode();
+              break;
+            case 4:
+              _handleResetPassword();
+              break;
+          }
+        },
+      },
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildSignInPage(cs, isDark),
+          _buildSignUpPage(cs, isDark),
+          _buildForgotPasswordPage(cs, isDark),
+          _buildVerifyCodePage(cs, isDark),
+          _buildResetPasswordPage(cs, isDark),
+        ],
+      ),
     );
   }
 
