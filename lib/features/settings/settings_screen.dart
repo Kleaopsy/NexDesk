@@ -5,35 +5,44 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Settings',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.5,
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Center(
+          // ← Center + ConstrainedBox combo to limit content width on large screens
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600), // ← Max width
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Settings',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const _SectionLabel('Appearance'),
+                const SizedBox(height: 12),
+                ListenableBuilder(
+                  listenable: themeProvider,
+                  builder: (context, _) {
+                    final cs = Theme.of(context).colorScheme;
+                    return _ThemeSelector(
+                      current: themeProvider.mode,
+                      onSelect: themeProvider.setMode,
+                      cs: cs,
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 28),
-          const _SectionLabel('Appearance'),
-          const SizedBox(height: 12),
-          // Rebuilds only this subtree on theme change
-          ListenableBuilder(
-            listenable: themeProvider,
-            builder: (context, _) {
-              final cs = Theme.of(context).colorScheme;
-              return _ThemeSelector(
-                current: themeProvider.mode,
-                onSelect: themeProvider.setMode,
-                cs: cs,
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
