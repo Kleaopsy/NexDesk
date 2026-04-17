@@ -2,14 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'dart:io';
-import 'app/shell.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'package:macos_window_utils/macos/ns_window_button_type.dart';
 import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:macos_window_utils/window_manipulator.dart';
+import 'firebase_options.dart';
 import 'core/theme_provider.dart';
+import 'app/shell.dart';
+import 'dart:io';
 
 // Single global instance — shared across entire app
 final themeProvider = ThemeProvider();
@@ -19,8 +20,8 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (Platform.isMacOS) {
-    // Cancel all pending async operations on exit
     ProcessSignal.sigterm.watch().listen((_) => exit(0));
+
     await WindowManipulator.initialize();
     await WindowManipulator.makeTitlebarTransparent();
     await WindowManipulator.enableFullSizeContentView();
@@ -37,6 +38,11 @@ void main() async {
       buttonType: NSWindowButtonType.zoomButton,
       offset: const Offset(61, 15),
     );
+  }
+
+  if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(const Size(850, 580));
   }
 
   runApp(const NexDeskApp());
