@@ -9,12 +9,16 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+  override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+    return true
+  }
+  
   override func applicationShouldTerminate(
     _ sender: NSApplication
   ) -> NSApplication.TerminateReply {
     showClosingOverlay()
     // Give Flutter 1.2s to show the animation, then force kill
-    DispatchQueue.main.asyncAfter(deadline: .now()) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
       exit(0)
     }
     return .terminateLater

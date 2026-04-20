@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/services/archive_service.dart';
 import '../../core/services/notes_service.dart';
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
@@ -9,14 +10,21 @@ import '../../core/services/notes_service.dart';
 extension NoteColorX on NoteColor {
   Color surface(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (this) {
       NoteColor.none => cs.surface,
-      NoteColor.red => const Color(0xFFFFF0F0),
-      NoteColor.orange => const Color(0xFFFFF4E6),
-      NoteColor.yellow => const Color(0xFFFFFDE6),
-      NoteColor.green => const Color(0xFFF0FFF4),
-      NoteColor.blue => const Color(0xFFEFF6FF),
-      NoteColor.purple => const Color(0xFFF5F0FF),
+      NoteColor.red =>
+        isDark ? const Color(0xFF2D1515) : const Color(0xFFFFF0F0),
+      NoteColor.orange =>
+        isDark ? const Color(0xFF2D1E0A) : const Color(0xFFFFF4E6),
+      NoteColor.yellow =>
+        isDark ? const Color(0xFF2D2A0A) : const Color(0xFFFFFDE6),
+      NoteColor.green =>
+        isDark ? const Color(0xFF0F2D1A) : const Color(0xFFF0FFF4),
+      NoteColor.blue =>
+        isDark ? const Color(0xFF0D1E2D) : const Color(0xFFEFF6FF),
+      NoteColor.purple =>
+        isDark ? const Color(0xFF1A0D2D) : const Color(0xFFF5F0FF),
     };
   }
 
@@ -31,16 +39,20 @@ extension NoteColorX on NoteColor {
       NoteColor.purple => const Color(0xFF805AD5),
     };
   }
+}
 
-  String get emoji => switch (this) {
-    NoteColor.none => '⬜',
-    NoteColor.red => '🔴',
-    NoteColor.orange => '🟠',
-    NoteColor.yellow => '🟡',
-    NoteColor.green => '🟢',
-    NoteColor.blue => '🔵',
-    NoteColor.purple => '🟣',
-  };
+// ── Result type for editor ────────────────────────────────────────────────────
+
+sealed class _EditorResult {}
+
+class _SaveResult extends _EditorResult {
+  final Note note;
+  _SaveResult(this.note);
+}
+
+class _ArchiveResult extends _EditorResult {
+  final Note note;
+  _ArchiveResult(this.note);
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -54,6 +66,8 @@ class NotesScreen extends StatefulWidget {
 
 class _NotesScreenState extends State<NotesScreen> {
   final _service = NotesService();
+  final _archiveService = ArchiveService();
+
   List<Note> _notes = [];
   List<Note> _filtered = [];
   bool _loading = true;
@@ -69,7 +83,6 @@ class _NotesScreenState extends State<NotesScreen> {
     _init();
     _connSub = _service.connectivityStream.listen((online) {
       if (mounted) setState(() => _online = online);
-      // Auto-sync when connection restored
       if (online) _sync();
     });
   }
@@ -107,16 +120,13 @@ class _NotesScreenState extends State<NotesScreen> {
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
       result = result.where((n) {
-        final inTitle = n.title.toLowerCase().contains(q);
-        final inContent = n.content.toLowerCase().contains(q);
-        final inTags = n.tags.any((t) => t.toLowerCase().contains(q));
-        // Hashtag search: #tag
-        final isHashtag = q.startsWith('#');
-        if (isHashtag) {
+        if (q.startsWith('#')) {
           final tag = q.substring(1);
           return n.tags.any((t) => t.toLowerCase().contains(tag));
         }
-        return inTitle || inContent || inTags;
+        return n.title.toLowerCase().contains(q) ||
+            n.content.toLowerCase().contains(q) ||
+            n.tags.any((t) => t.toLowerCase().contains(q));
       }).toList();
     }
     setState(() => _filtered = result);
@@ -125,20 +135,26 @@ class _NotesScreenState extends State<NotesScreen> {
   Set<String> get _allTags => _notes.expand((n) => n.tags).toSet();
 
   Future<void> _openEditor({Note? note}) async {
-    final result = await Navigator.of(context).push<Note?>(
+    final result = await Navigator.of(context).push<_EditorResult?>(
       PageRouteBuilder(
         opaque: false,
         pageBuilder: (_, animation, __) =>
             _NoteEditorPage(note: note, animation: animation),
         transitionDuration: const Duration(milliseconds: 320),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
       ),
     );
-    if (result == null) return;
-    final updated = await _service.saveNote(result, _notes);
-    if (!mounted) return;
-    setState(() => _notes = updated);
-    _applyFilter();
+
+    if (result == null || !mounted) return;
+
+    if (result is _SaveResult) {
+      final updated = await _service.saveNote(result.note, _notes);
+      if (!mounted) return;
+      setState(() => _notes = updated);
+      _applyFilter();
+    } else if (result is _ArchiveResult) {
+      await _archiveNote(result.note);
+    }
   }
 
   Future<void> _deleteNote(String id) async {
@@ -157,6 +173,22 @@ class _NotesScreenState extends State<NotesScreen> {
     if (!mounted) return;
     setState(() => _notes = list);
     _applyFilter();
+  }
+
+  Future<void> _archiveNote(Note note) async {
+    final updatedNotes = await _service.deleteNote(note.id, _notes);
+    final currentArchive = await _archiveService.loadLocal();
+    await _archiveService.archiveNote(note, currentArchive);
+    if (!mounted) return;
+    setState(() => _notes = updatedNotes);
+    _applyFilter();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Note archived'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -229,15 +261,23 @@ class _NotesScreenState extends State<NotesScreen> {
             ),
           ),
           // Layout toggle
-          _IconToggle(
-            icon: _isGrid ? Icons.list_rounded : Icons.grid_view_rounded,
-            onTap: () => setState(() {
-              _isGrid = !_isGrid;
-            }),
-            cs: cs,
+          Material(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              onTap: () => setState(() => _isGrid = !_isGrid),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  _isGrid ? Icons.list_rounded : Icons.grid_view_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
-          // New note
           FilledButton.icon(
             onPressed: () => _openEditor(),
             icon: const Icon(Icons.add_rounded, size: 16),
@@ -261,7 +301,6 @@ class _NotesScreenState extends State<NotesScreen> {
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
       child: Column(
         children: [
-          // Search
           TextField(
             onChanged: (v) {
               _search = v;
@@ -285,7 +324,6 @@ class _NotesScreenState extends State<NotesScreen> {
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
           ),
-          // Tag chips
           if (_allTags.isNotEmpty) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -298,7 +336,7 @@ class _NotesScreenState extends State<NotesScreen> {
                     active: _activeTag == null,
                     cs: cs,
                     onTap: () {
-                      _activeTag = null;
+                      setState(() => _activeTag = null);
                       _applyFilter();
                     },
                   ),
@@ -311,7 +349,9 @@ class _NotesScreenState extends State<NotesScreen> {
                         active: _activeTag == tag,
                         cs: cs,
                         onTap: () {
-                          _activeTag = _activeTag == tag ? null : tag;
+                          setState(
+                            () => _activeTag = _activeTag == tag ? null : tag,
+                          );
                           _applyFilter();
                         },
                       ),
@@ -346,6 +386,7 @@ class _NotesScreenState extends State<NotesScreen> {
           onTap: () => _openEditor(note: note),
           onDelete: () => _deleteNote(note.id),
           onPin: () => _togglePin(note),
+          onArchive: () => _archiveNote(note),
         );
       },
     );
@@ -366,6 +407,7 @@ class _NotesScreenState extends State<NotesScreen> {
           onTap: () => _openEditor(note: note),
           onDelete: () => _deleteNote(note.id),
           onPin: () => _togglePin(note),
+          onArchive: () => _archiveNote(note),
         );
       },
     );
@@ -414,6 +456,7 @@ class _NoteCard extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onPin;
+  final VoidCallback onArchive;
 
   const _NoteCard({
     super.key,
@@ -421,6 +464,7 @@ class _NoteCard extends StatefulWidget {
     required this.onTap,
     required this.onDelete,
     required this.onPin,
+    required this.onArchive,
   });
 
   @override
@@ -429,6 +473,55 @@ class _NoteCard extends StatefulWidget {
 
 class _NoteCardState extends State<_NoteCard> {
   bool _hovered = false;
+
+  void _showContextMenu(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final box = context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    showMenu(
+      context: context,
+      color: cs.surface,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      position: RelativeRect.fromLTRB(
+        offset.dx + size.width / 2,
+        offset.dy + size.height / 2,
+        offset.dx + size.width,
+        offset.dy + size.height,
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: widget.onPin,
+          child: _ContextMenuItem(
+            icon: widget.note.isPinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined,
+            label: widget.note.isPinned ? 'Unpin' : 'Pin',
+            cs: cs,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onArchive,
+          child: _ContextMenuItem(
+            icon: Icons.archive_outlined,
+            label: 'Archive',
+            cs: cs,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onDelete,
+          child: _ContextMenuItem(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            cs: cs,
+            danger: true,
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +535,8 @@ class _NoteCardState extends State<_NoteCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
+        onSecondaryTap: () => _showContextMenu(context),
+        onLongPress: () => _showContextMenu(context),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           decoration: BoxDecoration(
@@ -456,7 +551,7 @@ class _NoteCardState extends State<_NoteCard> {
             boxShadow: _hovered
                 ? [
                     BoxShadow(
-                      color: accent.withValues(alpha: 0.12),
+                      color: accent.withValues(alpha: 0.10),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -505,7 +600,6 @@ class _NoteCardState extends State<_NoteCard> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Tags
                   if (note.tags.isNotEmpty)
                     Wrap(
                       spacing: 4,
@@ -522,7 +616,6 @@ class _NoteCardState extends State<_NoteCard> {
                   ),
                 ],
               ),
-              // Action buttons on hover
               if (_hovered)
                 Positioned(
                   top: 0,
@@ -536,6 +629,12 @@ class _NoteCardState extends State<_NoteCard> {
                             : Icons.push_pin_outlined,
                         color: accent,
                         onTap: widget.onPin,
+                      ),
+                      const SizedBox(width: 4),
+                      _ActionDot(
+                        icon: Icons.archive_outlined,
+                        color: cs.onSurfaceVariant,
+                        onTap: widget.onArchive,
                       ),
                       const SizedBox(width: 4),
                       _ActionDot(
@@ -561,6 +660,7 @@ class _NoteListTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onPin;
+  final VoidCallback onArchive;
 
   const _NoteListTile({
     super.key,
@@ -568,6 +668,7 @@ class _NoteListTile extends StatefulWidget {
     required this.onTap,
     required this.onDelete,
     required this.onPin,
+    required this.onArchive,
   });
 
   @override
@@ -589,6 +690,8 @@ class _NoteListTileState extends State<_NoteListTile> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
+        onSecondaryTap: () => _showContextMenu(context, cs),
+        onLongPress: () => _showContextMenu(context, cs),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.all(14),
@@ -652,26 +755,89 @@ class _NoteListTileState extends State<_NoteListTile> {
                 _relativeTime(note.updatedAt),
                 style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
               ),
-              if (_hovered) ...[
-                const SizedBox(width: 8),
-                _ActionDot(
-                  icon: note.isPinned
-                      ? Icons.push_pin_rounded
-                      : Icons.push_pin_outlined,
-                  color: accent,
-                  onTap: widget.onPin,
-                ),
-                const SizedBox(width: 4),
-                _ActionDot(
-                  icon: Icons.close_rounded,
-                  color: cs.error,
-                  onTap: widget.onDelete,
-                ),
-              ],
+              AnimatedSize(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeInOutCubic,
+                child: _hovered
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: 8),
+                          _ActionDot(
+                            icon: note.isPinned
+                                ? Icons.push_pin_rounded
+                                : Icons.push_pin_outlined,
+                            color: accent,
+                            onTap: widget.onPin,
+                          ),
+                          const SizedBox(width: 4),
+                          _ActionDot(
+                            icon: Icons.archive_outlined,
+                            color: cs.onSurfaceVariant,
+                            onTap: widget.onArchive,
+                          ),
+                          const SizedBox(width: 4),
+                          _ActionDot(
+                            icon: Icons.close_rounded,
+                            color: cs.error,
+                            onTap: widget.onDelete,
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context, ColorScheme cs) {
+    final box = context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+
+    showMenu(
+      context: context,
+      color: cs.surface,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      position: RelativeRect.fromLTRB(
+        offset.dx + size.width / 2,
+        offset.dy + size.height / 2,
+        offset.dx + size.width,
+        offset.dy + size.height,
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: widget.onPin,
+          child: _ContextMenuItem(
+            icon: widget.note.isPinned
+                ? Icons.push_pin_rounded
+                : Icons.push_pin_outlined,
+            label: widget.note.isPinned ? 'Unpin' : 'Pin',
+            cs: cs,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onArchive,
+          child: _ContextMenuItem(
+            icon: Icons.archive_outlined,
+            label: 'Archive',
+            cs: cs,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onDelete,
+          child: _ContextMenuItem(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            cs: cs,
+            danger: true,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -716,19 +882,20 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
     super.dispose();
   }
 
-  void _save() {
-    final note = Note(
-      id: widget.note?.id ?? const Uuid().v4(),
-      title: _titleCtrl.text.trim(),
-      content: _contentCtrl.text.trim(),
-      tags: _tags,
-      color: _color,
-      isPinned: _isPinned,
-      createdAt: widget.note?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    Navigator.pop(context, note);
-  }
+  Note _buildNote() => Note(
+    id: widget.note?.id ?? const Uuid().v4(),
+    title: _titleCtrl.text.trim(),
+    content: _contentCtrl.text.trim(),
+    tags: _tags,
+    color: _color,
+    isPinned: _isPinned,
+    createdAt: widget.note?.createdAt ?? DateTime.now(),
+    updatedAt: DateTime.now(),
+  );
+
+  void _save() => Navigator.pop(context, _SaveResult(_buildNote()));
+
+  void _archive() => Navigator.pop(context, _ArchiveResult(_buildNote()));
 
   void _addTag(String raw) {
     final tag = raw.trim().replaceAll('#', '').toLowerCase();
@@ -756,7 +923,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
         return FadeTransition(
           opacity: curve,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.93, end: 1.0).animate(curve),
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(curve),
             child: child,
           ),
         );
@@ -769,21 +936,21 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
             Container(
               padding: EdgeInsets.fromLTRB(
                 16,
-                Platform.isMacOS ? 8 : 16,
+                Platform.isMacOS ? 10 : 16,
                 16,
                 0,
               ),
               child: Row(
                 children: [
+                  SizedBox(width: Platform.isMacOS ? 72 : 0),
                   // Back
-                  SizedBox(width: Platform.isMacOS ? 70 : 0),
                   _ToolbarBtn(
                     icon: Icons.arrow_back_rounded,
                     onTap: () => Navigator.pop(context),
                     cs: cs,
                   ),
-                  const SizedBox(width: 8),
-                  // Pin
+                  const SizedBox(width: 6),
+                  // Pin toggle
                   _ToolbarBtn(
                     icon: _isPinned
                         ? Icons.push_pin_rounded
@@ -793,10 +960,18 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                     active: _isPinned,
                     accent: accent,
                   ),
+                  const SizedBox(width: 6),
+                  // Archive
+                  _ToolbarBtn(
+                    icon: Icons.archive_outlined,
+                    onTap: _archive,
+                    cs: cs,
+                    tooltip: 'Archive this note',
+                  ),
                   const Spacer(),
                   // Color picker
                   ..._colorDots(cs),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   // Save
                   FilledButton(
                     onPressed: _save,
@@ -819,7 +994,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             // Title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -836,7 +1011,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                   hintStyle: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                     letterSpacing: -0.5,
                   ),
                   border: InputBorder.none,
@@ -862,7 +1037,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                     hintText: 'Write your note...',
                     hintStyle: TextStyle(
                       fontSize: 15,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -870,13 +1045,13 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                 ),
               ),
             ),
-            // Tag input + chips
+            // Tag bar
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.3),
+                    color: cs.outlineVariant.withValues(alpha: 0.25),
                     width: 0.5,
                   ),
                 ),
@@ -884,7 +1059,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_tags.isNotEmpty)
+                  if (_tags.isNotEmpty) ...[
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -898,13 +1073,14 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                           )
                           .toList(),
                     ),
-                  if (_tags.isNotEmpty) const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
                   TextField(
                     controller: _tagCtrl,
                     onSubmitted: _addTag,
                     style: TextStyle(fontSize: 13, color: cs.onSurface),
                     decoration: InputDecoration(
-                      hintText: 'Add tag (press Enter)...',
+                      hintText: 'Add tag and press Enter...',
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: cs.onSurfaceVariant,
@@ -950,7 +1126,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
             color: dotColor,
             border: isSelected
                 ? Border.all(
-                    color: cs.onSurface.withValues(alpha: 0.3),
+                    color: cs.onSurface.withValues(alpha: 0.25),
                     width: 2,
                   )
                 : null,
@@ -961,35 +1137,7 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
   }
 }
 
-// ── Small reusable widgets ────────────────────────────────────────────────────
-
-class _IconToggle extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-
-  const _IconToggle({
-    required this.icon,
-    required this.onTap,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
-        ),
-      ),
-    );
-  }
-}
+// ── Reusable small widgets ────────────────────────────────────────────────────
 
 class _TagChip extends StatelessWidget {
   final String label;
@@ -1135,6 +1283,7 @@ class _ToolbarBtn extends StatelessWidget {
   final ColorScheme cs;
   final bool active;
   final Color? accent;
+  final String? tooltip;
 
   const _ToolbarBtn({
     required this.icon,
@@ -1142,11 +1291,12 @@ class _ToolbarBtn extends StatelessWidget {
     required this.cs,
     this.active = false,
     this.accent,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final btn = Material(
       color: active
           ? (accent ?? cs.primary).withValues(alpha: 0.12)
           : cs.surfaceContainerLow,
@@ -1164,8 +1314,41 @@ class _ToolbarBtn extends StatelessWidget {
         ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: btn);
+    }
+    return btn;
   }
 }
+
+class _ContextMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme cs;
+  final bool danger;
+
+  const _ContextMenuItem({
+    required this.icon,
+    required this.label,
+    required this.cs,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? cs.error : cs.onSurface;
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 10),
+        Text(label, style: TextStyle(fontSize: 13, color: color)),
+      ],
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _relativeTime(DateTime dt) {
   final diff = DateTime.now().difference(dt);
