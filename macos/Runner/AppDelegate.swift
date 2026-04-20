@@ -18,7 +18,7 @@ class AppDelegate: FlutterAppDelegate {
   ) -> NSApplication.TerminateReply {
     showClosingOverlay()
     // Give Flutter 1.2s to show the animation, then force kill
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0) {
       exit(0)
     }
     return .terminateLater
