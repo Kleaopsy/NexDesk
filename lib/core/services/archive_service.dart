@@ -192,6 +192,27 @@ class ArchiveService {
     return updated;
   }
 
+  // deleteItem metodunun hemen altına ekle
+  Future<List<ArchivedItem>> restoreNote(
+    ArchivedItem item,
+    List<ArchivedItem> current,
+    NotesService notesService,
+    List<Note> currentNotes,
+  ) async {
+    // Rebuild the note from archived data
+    final note = item.toNote();
+    if (note == null) return current;
+
+    // Save note back to notes
+    await notesService.saveNote(
+      note.copyWith(updatedAt: DateTime.now()),
+      currentNotes,
+    );
+
+    // Remove from archive
+    return deleteItem(item.id, current);
+  }
+
   Future<List<ArchivedItem>> clearAll(List<ArchivedItem> current) async {
     await _saveLocal([]);
     if (await isOnline()) {

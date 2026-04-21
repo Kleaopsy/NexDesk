@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/archive_service.dart';
+import '../../core/services/notes_service.dart';
 
 class ArchiveScreen extends StatefulWidget {
   const ArchiveScreen({super.key});
@@ -10,6 +11,7 @@ class ArchiveScreen extends StatefulWidget {
 
 class _ArchiveScreenState extends State<ArchiveScreen> {
   final _service = ArchiveService();
+  final _notesService = NotesService();
   List<ArchivedItem> _items = [];
   List<ArchivedItem> _filtered = [];
   bool _loading = true;
@@ -54,6 +56,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 
   Future<void> _delete(String id) async {
+    // Confirm before permanent delete
+    final confirmed = await _showConfirm(
+      title: 'Delete permanently',
+      message: 'This item will be deleted forever and cannot be recovered.',
+      confirmLabel: 'Delete',
+      isDangerous: true,
+    );
+    if (confirmed != true) return;
     final updated = await _service.deleteItem(id, _items);
     if (!mounted) return;
     setState(() => _items = updated);
@@ -61,50 +71,42 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 
   Future<void> _restore(ArchivedItem item) async {
-    // Show confirmation
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => _ConfirmDialog(
-        title: 'Restore item',
-        message: 'This will restore "${item.title}" to its original location.',
-        confirmLabel: 'Restore',
-      ),
+    // Get current notes to pass to service
+    final currentNotes = await _notesService.loadLocal();
+    final updated = await _service.restoreNote(
+      item,
+      _items,
+      _notesService,
+      currentNotes,
     );
-    if (confirmed != true || !mounted) return;
-
-    // Remove from archive
-    final updated = await _service.deleteItem(item.id, _items);
     if (!mounted) return;
     setState(() => _items = updated);
     _applyFilter();
 
-    // Show result
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('"${item.title}" restored'),
+        content: Text('"${item.title}" moved back to Notes'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Future<void> _clearAll() async {
-    if (_items.isEmpty) return;
-    final confirmed = await showDialog<bool>(
+  Future<bool?> _showConfirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool isDangerous = false,
+  }) {
+    return showDialog<bool>(
       context: context,
       builder: (_) => _ConfirmDialog(
-        title: 'Clear archive',
-        message:
-            'This will permanently delete all ${_items.length} archived items. This cannot be undone.',
-        confirmLabel: 'Clear all',
-        isDangerous: true,
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        isDangerous: isDangerous,
       ),
     );
-    if (confirmed != true || !mounted) return;
-    final updated = await _service.clearAll(_items);
-    if (!mounted) return;
-    setState(() => _items = updated);
-    _applyFilter();
   }
 
   @override
@@ -128,8 +130,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       ),
     );
   }
-
-  // ── Top bar ────────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(ColorScheme cs) {
     return Padding(
@@ -174,27 +174,10 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               ],
             ),
           ),
-          if (_items.isNotEmpty)
-            TextButton.icon(
-              onPressed: _clearAll,
-              icon: Icon(Icons.delete_sweep_rounded, size: 16, color: cs.error),
-              label: Text(
-                'Clear all',
-                style: TextStyle(fontSize: 13, color: cs.error),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
-
-  // ── Filter bar ─────────────────────────────────────────────────────────────
 
   Widget _buildFilterBar(ColorScheme cs) {
     return Padding(
@@ -224,7 +207,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
           ),
-          // Type filter chips
           const SizedBox(height: 10),
           SizedBox(
             height: 28,
@@ -261,10 +243,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     );
   }
 
-  // ── List ───────────────────────────────────────────────────────────────────
-
   Widget _buildList(ColorScheme cs) {
-    // Group by date
     final groups = <String, List<ArchivedItem>>{};
     for (final item in _filtered) {
       final key = _dateGroup(item.archivedAt);
@@ -308,8 +287,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     );
   }
 
-  // ── Empty ──────────────────────────────────────────────────────────────────
-
   Widget _buildEmpty(ColorScheme cs) {
     return Center(
       child: Column(
@@ -341,8 +318,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     );
   }
 }
-
-// ── Archive tile ──────────────────────────────────────────────────────────────
 
 class _ArchiveTile extends StatefulWidget {
   final ArchivedItem item;
@@ -387,7 +362,6 @@ class _ArchiveTileState extends State<_ArchiveTile> {
         ),
         child: Row(
           children: [
-            // Type icon
             Container(
               width: 36,
               height: 36,
@@ -396,13 +370,12 @@ class _ArchiveTileState extends State<_ArchiveTile> {
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Icon(
-                _typeIcon(item.type),
+                Icons.sticky_note_2_outlined,
                 size: 17,
                 color: cs.onSurfaceVariant,
               ),
             ),
             const SizedBox(width: 12),
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,23 +403,13 @@ class _ArchiveTileState extends State<_ArchiveTile> {
                     ),
                   ],
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _TypeBadge(type: item.type, cs: cs),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDate(item.archivedAt),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    _formatDate(item.archivedAt),
+                    style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
-            // Actions on hover
             AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: _hovered ? 1.0 : 0.0,
@@ -454,16 +417,16 @@ class _ArchiveTileState extends State<_ArchiveTile> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _TileBtn(
-                    icon: Icons.restore_rounded,
-                    label: 'Restore',
+                    icon: Icons.unarchive_rounded,
+                    label: 'Move to Notes',
                     color: cs.primary,
                     onTap: widget.onRestore,
                     cs: cs,
                   ),
                   const SizedBox(width: 6),
                   _TileBtn(
-                    icon: Icons.delete_outline_rounded,
-                    label: 'Delete',
+                    icon: Icons.delete_forever_rounded,
+                    label: 'Delete forever',
                     color: cs.error,
                     onTap: widget.onDelete,
                     cs: cs,
@@ -476,13 +439,7 @@ class _ArchiveTileState extends State<_ArchiveTile> {
       ),
     );
   }
-
-  IconData _typeIcon(ArchivedItemType type) => switch (type) {
-    ArchivedItemType.note => Icons.sticky_note_2_outlined,
-  };
 }
-
-// ── Small reusables ───────────────────────────────────────────────────────────
 
 class _FilterChip extends StatelessWidget {
   final String label;
@@ -536,36 +493,6 @@ class _FilterChip extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  final ArchivedItemType type;
-  final ColorScheme cs;
-
-  const _TypeBadge({required this.type, required this.cs});
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (type) {
-      ArchivedItemType.note => 'Note',
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: cs.onSurfaceVariant,
         ),
       ),
     );
@@ -634,7 +561,6 @@ class _ConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
     return Center(
       child: Material(
         color: Colors.transparent,
@@ -704,8 +630,6 @@ class _ConfirmDialog extends StatelessWidget {
     );
   }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _dateGroup(DateTime dt) {
   final now = DateTime.now();
