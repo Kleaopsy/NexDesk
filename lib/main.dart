@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:nexdesk/core/providers/locale_provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:macos_window_utils/macos/ns_window_button_type.dart';
@@ -14,6 +15,7 @@ import 'dart:io';
 
 // Single global instance — shared across entire app
 final themeProvider = ThemeProvider();
+final localeProvider = LocaleProvider();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,18 +61,19 @@ class _NexDeskAppState extends State<NexDeskApp> {
   @override
   void initState() {
     super.initState();
-    // Listen to the global instance — rebuild when theme changes
     themeProvider.addListener(_onThemeChange);
-  }
-
-  void _onThemeChange() {
-    if (mounted) setState(() {});
+    localeProvider.addListener(_onThemeChange); // same rebuild trigger
   }
 
   @override
   void dispose() {
     themeProvider.removeListener(_onThemeChange);
+    localeProvider.removeListener(_onThemeChange);
     super.dispose();
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -83,6 +86,8 @@ class _NexDeskAppState extends State<NexDeskApp> {
           title: 'NexDesk',
           debugShowCheckedModeBanner: false,
           themeMode: themeProvider.mode,
+          // Locale support
+          locale: localeProvider.locale,
           theme: ThemeData(
             colorScheme:
                 lightDynamic ??
