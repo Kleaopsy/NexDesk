@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:macos_window_utils/macos/ns_window_button_type.dart';
 import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:macos_window_utils/window_manipulator.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'core/theme_provider.dart';
 import 'app/shell.dart';
@@ -86,8 +87,16 @@ class _NexDeskAppState extends State<NexDeskApp> {
           title: 'NexDesk',
           debugShowCheckedModeBanner: false,
           themeMode: themeProvider.mode,
-          // Locale support
           locale: localeProvider.locale,
+          // Missing translations will fallback to English, which is our base language
+          supportedLocales: const [Locale('en'), Locale('tr')],
+          localeResolutionCallback: (locale, supported) =>
+              localeProvider.locale,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           theme: ThemeData(
             colorScheme:
                 lightDynamic ??

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:nexdesk/core/l10n/app_strings.dart';
 import 'package:nexdesk/features/widgets/auth_layer.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/myprojects/my_projects_screen.dart';
@@ -8,52 +9,62 @@ import '../features/tasks/tasks_screen.dart';
 import '../features/notes/notes_screen.dart';
 import '../features/archive/archive_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../main.dart';
 import 'dart:io';
 
 // Nav item data model
 class _NavItem {
   final IconData icon;
   final IconData iconActive;
-  final String label;
+  // Key for localization lookup
+  final String Function(AppStrings) getLabel;
   final Widget screen;
-  const _NavItem(this.icon, this.iconActive, this.label, this.screen);
+  const _NavItem(this.icon, this.iconActive, this.getLabel, this.screen);
 }
+
+// Top-level functions — required for const list
+String labelDashboard(AppStrings s) => s.dashboard;
+String labelMyProjects(AppStrings s) => s.myProjects;
+String labelTasks(AppStrings s) => s.tasks;
+String labelQuickNotes(AppStrings s) => s.quickNotes;
+String labelArchive(AppStrings s) => s.archive;
+String labelSettings(AppStrings s) => s.settings;
 
 const _pages = [
   _NavItem(
     Icons.grid_view_outlined,
     Icons.grid_view_rounded,
-    'Dashboard',
+    labelDashboard,
     DashboardScreen(),
   ),
   _NavItem(
     Icons.rocket_launch_outlined,
     Icons.rocket_launch_rounded,
-    'My Projects',
+    labelMyProjects,
     ProjectsScreen(), // Firebase'den projeleri çekeceğimiz ana yer
   ),
   _NavItem(
     Icons.checklist_rtl_rounded,
     Icons.checklist_rounded,
-    'Tasks',
+    labelTasks,
     TasksScreen(), // Kanban veya liste görünümü
   ),
   _NavItem(
     Icons.sticky_note_2_outlined,
     Icons.sticky_note_2_rounded,
-    'Quick Notes',
+    labelQuickNotes,
     NotesScreen(), // Kod parçacıkları veya fikirler için
   ),
   _NavItem(
     Icons.archive_outlined,
     Icons.archive_rounded,
-    'Archive',
+    labelArchive,
     ArchiveScreen(),
   ),
   _NavItem(
     Icons.settings_outlined,
     Icons.settings_rounded,
-    'Settings',
+    labelSettings,
     SettingsScreen(),
   ),
 ];
@@ -156,7 +167,11 @@ class _Sidebar extends StatelessWidget {
             SizedBox(height: Platform.isMacOS ? 40 : 10),
             const _SidebarHeader(),
             Expanded(
-              child: _SidebarNav(selected: selected, onSelect: onSelect),
+              child: ListenableBuilder(
+                listenable: localeProvider,
+                builder: (context, _) =>
+                    _SidebarNav(selected: selected, onSelect: onSelect),
+              ),
             ),
             const _SidebarFooter(collapsed: false),
           ],
@@ -325,7 +340,7 @@ class _NavTileState extends State<_NavTile> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  widget.item.label,
+                  widget.item.getLabel(AppStrings.of(context)),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: active ? FontWeight.w600 : FontWeight.w400,
