@@ -466,20 +466,34 @@ class _NoteCardState extends State<_NoteCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (note.isPinned)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Icon(Icons.push_pin_rounded, size: 13, color: accent),
-                    ),
-                  if (note.title.isNotEmpty) ...[
-                    Text(
-                      note.title,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 5),
-                  ],
+                  // Pin icon + title row — sağda hover butonları için yer bırak
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (note.isPinned)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Icon(Icons.push_pin_rounded, size: 13, color: accent),
+                              ),
+                            if (note.title.isNotEmpty)
+                              Text(
+                                note.title,
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Hover butonları için sabit yer — her zaman var ama görünmez
+                      if (_hovered) const SizedBox(width: 72) else const SizedBox(width: 0),
+                    ],
+                  ),
+                  if (note.title.isNotEmpty) const SizedBox(height: 5),
                   Expanded(
                     child: Text(
                       note.content.isEmpty ? s.emptyNote : note.content,
