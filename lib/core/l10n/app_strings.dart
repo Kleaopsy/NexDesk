@@ -24,6 +24,34 @@ class AppStrings {
   String get signUp => _s('Sign Up', 'Kayıt Ol');
   String get signOut => _s('Log out', 'Çıkış Yap');
 
+  // ── Projects ───────────────────────────────────────────────────────────────────
+  String get projects => _s('projects', 'proje');
+  String get newProject => _s('New Project', 'Yeni Proje');
+  String get noProjectsYet => _s('No projects yet', 'Henüz proje yok');
+  String get createYourFirstProject => _s('Create your first project to get started', 'Başlamak için ilk projenizi oluşturun');
+  String get active => _s('Active', 'Aktif');
+  String get onHold => _s('On Hold', 'Beklemede');
+  String get completed => _s('Completed', 'Tamamlandı');
+  String get tasksDone => _s('done', 'tamamlandı');
+  String get noTasksYet => _s('No tasks yet', 'Henüz görev yok');
+  String get edit => _s('Edit', 'Düzenle');
+  String get markComplete => _s('Mark as complete', 'Tamamlandı olarak işaretle');
+  String get markActive => _s('Mark as active', 'Aktif olarak işaretle');
+
+  // ── Tasks ─────────────────────────────────────────────────────────────────────
+  String get addTask => _s('Add task', 'Görev ekle');
+  String get todo => _s('To Do', 'Yapılacak');
+  String get inProgress => _s('In Progress', 'Devam Ediyor');
+  String get done => _s('Done', 'Tamamlandı');
+  String get noProjectsForTasks =>
+      _s('No projects yet.\nCreate a project first to add tasks.', 'Henüz proje yok.\nGörev eklemek için önce bir proje oluşturun.');
+  String get goToProjects => _s('Go to My Projects', 'Projelerime Git');
+
+  // ── Notes link ────────────────────────────────────────────────────────────────
+  String get linked => _s('linked', 'bağlı');
+  String get linkNote => _s('Link note', 'Not bağla');
+  String get noLinkedNotes => _s('No notes linked yet', 'Henüz bağlı not yok');
+
   // ── Notes ──────────────────────────────────────────────────────────────────
   String get newNote => _s('New Note', 'Yeni Not');
   String get emptyNote => _s('Empty note', 'Boş not');
