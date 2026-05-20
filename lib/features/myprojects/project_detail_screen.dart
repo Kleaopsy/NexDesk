@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:nexdesk/core/l10n/app_strings.dart';
 import 'package:nexdesk/core/services/notes_service.dart';
@@ -127,7 +129,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> with SingleTi
           // Header
           Container(
             color: cs.surface,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              Platform.isMacOS ? 48 : 16, // ← macOS traffic lights için boşluk
+              20,
+              0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -604,6 +611,17 @@ class _LinkedNoteTile extends StatefulWidget {
 class _LinkedNoteTileState extends State<_LinkedNoteTile> {
   bool _hovered = false;
 
+  void _openNote(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (_, animation, __) => _NoteReaderOverlay(note: widget.note, animation: animation),
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 240),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
@@ -612,44 +630,60 @@ class _LinkedNoteTileState extends State<_LinkedNoteTile> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _hovered ? cs.outlineVariant.withValues(alpha: 0.5) : cs.outlineVariant.withValues(alpha: 0.25), width: 0.5),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.sticky_note_2_outlined, size: 16, color: cs.onSurfaceVariant),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    note.title.isNotEmpty ? note.title : 'Untitled',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: cs.onSurface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (note.content.isNotEmpty)
+      child: GestureDetector(
+        onTap: () => _openNote(context),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _hovered ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant.withValues(alpha: 0.25), width: _hovered ? 1 : 0.5),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.sticky_note_2_outlined, size: 16, color: cs.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      note.content,
-                      style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                      note.title.isNotEmpty ? note.title : 'Untitled',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: cs.onSurface),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                ],
+                    if (note.content.isNotEmpty)
+                      Text(
+                        note.content,
+                        style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
               ),
-            ),
-            if (_hovered)
-              GestureDetector(
-                onTap: widget.onUnlink,
-                child: Icon(Icons.link_off_rounded, size: 14, color: cs.error),
+              // Hover actions
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: _hovered ? 1.0 : 0.0,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Open hint
+                    Icon(Icons.open_in_new_rounded, size: 13, color: cs.primary),
+                    const SizedBox(width: 8),
+                    // Unlink
+                    GestureDetector(
+                      onTap: widget.onUnlink,
+                      child: Icon(Icons.link_off_rounded, size: 13, color: cs.error),
+                    ),
+                  ],
+                ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1016,5 +1050,135 @@ class _FilterChipSmall extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+// ── Note Reader Overlay ───────────────────────────────────────────────────────
+
+class _NoteReaderOverlay extends StatelessWidget {
+  final Note note;
+  final Animation<double> animation;
+
+  const _NoteReaderOverlay({required this.note, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s = AppStrings.of(context);
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curve,
+          child: ScaleTransition(scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve), child: child),
+        );
+      },
+      child: Scaffold(
+        backgroundColor: cs.surface,
+        body: Column(
+          children: [
+            // Toolbar
+            Container(
+              padding: EdgeInsets.fromLTRB(16, Platform.isMacOS ? 10 : 16, 16, 0),
+              child: Row(
+                children: [
+                  SizedBox(width: Platform.isMacOS ? 72 : 0),
+                  Material(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(Icons.arrow_back_rounded, size: 18, color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Read-only badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(6)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 11, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text(
+                          s.readOnly,
+                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (note.isPinned) ...[const SizedBox(width: 8), Icon(Icons.push_pin_rounded, size: 14, color: cs.primary.withValues(alpha: 0.7))],
+                  const Spacer(),
+                  Text(_relativeTime(note.updatedAt), style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Title
+            if (note.title.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    note.title,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: cs.onSurface, letterSpacing: -0.5),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  note.content.isEmpty ? s.emptyNote : note.content,
+                  style: TextStyle(fontSize: 15, color: note.content.isEmpty ? cs.onSurfaceVariant : cs.onSurface.withValues(alpha: 0.85), height: 1.65),
+                ),
+              ),
+            ),
+            // Tags
+            if (note.tags.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25), width: 0.5)),
+                ),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: note.tags
+                      .map(
+                        (t) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: cs.primaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
+                          child: Text(
+                            '#$t',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cs.primary),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _relativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }

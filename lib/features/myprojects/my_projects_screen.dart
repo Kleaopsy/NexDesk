@@ -407,6 +407,15 @@ class _ProjectCardState extends State<_ProjectCard> {
             cs: cs,
           ),
         ),
+        // ── On Hold toggle ──────────────────────────────────────────────────
+        PopupMenuItem(
+          onTap: () => widget.onStatusChange(widget.project.status == ProjectStatus.onHold ? ProjectStatus.active : ProjectStatus.onHold),
+          child: _MenuItem(
+            icon: widget.project.status == ProjectStatus.onHold ? Icons.play_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+            label: widget.project.status == ProjectStatus.onHold ? s.resumeProject : s.putOnHold,
+            cs: cs,
+          ),
+        ),
         PopupMenuItem(
           onTap: widget.onDelete,
           child: _MenuItem(icon: Icons.delete_outline_rounded, label: s.delete, cs: cs, danger: true),

@@ -37,6 +37,9 @@ class AppStrings {
   String get edit => _s('Edit', 'Düzenle');
   String get markComplete => _s('Mark as complete', 'Tamamlandı olarak işaretle');
   String get markActive => _s('Mark as active', 'Aktif olarak işaretle');
+  String get putOnHold => _s('Put on hold', 'Beklemede bırak');
+  String get resumeProject => _s('Resume', 'Devam ettir');
+  String get readOnly => _s('Read only', 'Salt okunur');
 
   // ── Tasks ─────────────────────────────────────────────────────────────────────
   String get addTask => _s('Add task', 'Görev ekle');
