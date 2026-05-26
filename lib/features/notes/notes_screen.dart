@@ -1,18 +1,19 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:nexdesk/core/l10n/app_strings.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/archive_service.dart';
 import '../../core/services/notes_service.dart';
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
+
 extension NoteColorX on NoteColor {
   Color surface(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (this) {
-      NoteColor.none => cs.surface,
+      NoteColor.none => Theme.of(context).colorScheme.surface,
       NoteColor.red => isDark ? const Color(0xFF2D1515) : const Color(0xFFFFF0F0),
       NoteColor.orange => isDark ? const Color(0xFF2D1E0A) : const Color(0xFFFFF4E6),
       NoteColor.yellow => isDark ? const Color(0xFF2D2A0A) : const Color(0xFFFFFDE6),
@@ -22,20 +23,18 @@ extension NoteColorX on NoteColor {
     };
   }
 
-  Color accent(BuildContext context) {
-    return switch (this) {
-      NoteColor.none => Theme.of(context).colorScheme.primary,
-      NoteColor.red => const Color(0xFFE53E3E),
-      NoteColor.orange => const Color(0xFFDD6B20),
-      NoteColor.yellow => const Color(0xFFD69E2E),
-      NoteColor.green => const Color(0xFF38A169),
-      NoteColor.blue => const Color(0xFF3182CE),
-      NoteColor.purple => const Color(0xFF805AD5),
-    };
-  }
+  Color accent(BuildContext context) => switch (this) {
+    NoteColor.none => Theme.of(context).colorScheme.primary,
+    NoteColor.red => const Color(0xFFE53E3E),
+    NoteColor.orange => const Color(0xFFDD6B20),
+    NoteColor.yellow => const Color(0xFFD69E2E),
+    NoteColor.green => const Color(0xFF38A169),
+    NoteColor.blue => const Color(0xFF3182CE),
+    NoteColor.purple => const Color(0xFF805AD5),
+  };
 }
 
-// ── Result type for editor ────────────────────────────────────────────────────
+// ── Result types ──────────────────────────────────────────────────────────────
 
 sealed class _EditorResult {}
 
@@ -61,7 +60,6 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   final _service = NotesService();
   final _archiveService = ArchiveService();
-
   List<Note> _notes = [];
   List<Note> _filtered = [];
   bool _loading = true;
@@ -135,9 +133,7 @@ class _NotesScreenState extends State<NotesScreen> {
         reverseTransitionDuration: const Duration(milliseconds: 260),
       ),
     );
-
     if (result == null || !mounted) return;
-
     if (result is _SaveResult) {
       final updated = await _service.saveNote(result.note, _notes);
       if (!mounted) return;
@@ -164,7 +160,7 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   Future<void> _archiveNote(Note note) async {
-    final AppStrings s = AppStrings.of(context);
+    final s = AppStrings.of(context);
     final updatedNotes = await _service.deleteNote(note.id, _notes);
     final currentArchive = await _archiveService.loadLocal();
     await _archiveService.archiveNote(note, currentArchive);
@@ -179,8 +175,7 @@ class _NotesScreenState extends State<NotesScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final AppStrings s = AppStrings.of(context);
-
+    final s = AppStrings.of(context);
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       body: Column(
@@ -200,8 +195,6 @@ class _NotesScreenState extends State<NotesScreen> {
       ),
     );
   }
-
-  // ── Top bar ────────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(ColorScheme cs, AppStrings s) {
     return Padding(
@@ -232,7 +225,6 @@ class _NotesScreenState extends State<NotesScreen> {
               ],
             ),
           ),
-          // Layout toggle
           Material(
             color: cs.surfaceContainerLow,
             borderRadius: BorderRadius.circular(8),
@@ -256,8 +248,6 @@ class _NotesScreenState extends State<NotesScreen> {
       ),
     );
   }
-
-  // ── Filter bar ─────────────────────────────────────────────────────────────
 
   Widget _buildFilterBar(ColorScheme cs, AppStrings s) {
     return Padding(
@@ -320,8 +310,6 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  // ── Grid ───────────────────────────────────────────────────────────────────
-
   Widget _buildGrid() {
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
@@ -341,8 +329,6 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  // ── List ───────────────────────────────────────────────────────────────────
-
   Widget _buildList() {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
@@ -361,8 +347,6 @@ class _NotesScreenState extends State<NotesScreen> {
       },
     );
   }
-
-  // ── Empty ──────────────────────────────────────────────────────────────────
 
   Widget _buildEmpty(ColorScheme cs, AppStrings s) {
     return Center(
@@ -386,7 +370,7 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 }
 
-// ── Note Card (Grid) ──────────────────────────────────────────────────────────
+// ── Note Card ─────────────────────────────────────────────────────────────────
 
 class _NoteCard extends StatefulWidget {
   final Note note;
@@ -406,10 +390,10 @@ class _NoteCardState extends State<_NoteCard> {
 
   void _showContextMenu(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final s = AppStrings.of(context);
     final box = context.findRenderObject() as RenderBox;
     final offset = box.localToGlobal(Offset.zero);
     final size = box.size;
-
     showMenu(
       context: context,
       color: cs.surface,
@@ -421,17 +405,17 @@ class _NoteCardState extends State<_NoteCard> {
           onTap: widget.onPin,
           child: _ContextMenuItem(
             icon: widget.note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            label: widget.note.isPinned ? 'Unpin' : 'Pin',
+            label: widget.note.isPinned ? s.unpin : s.pin,
             cs: cs,
           ),
         ),
         PopupMenuItem(
           onTap: widget.onArchive,
-          child: _ContextMenuItem(icon: Icons.archive_outlined, label: 'Archive', cs: cs),
+          child: _ContextMenuItem(icon: Icons.archive_outlined, label: s.archive, cs: cs),
         ),
         PopupMenuItem(
           onTap: widget.onDelete,
-          child: _ContextMenuItem(icon: Icons.delete_outline_rounded, label: 'Delete', cs: cs, danger: true),
+          child: _ContextMenuItem(icon: Icons.delete_outline_rounded, label: s.delete, cs: cs, danger: true),
         ),
       ],
     );
@@ -440,7 +424,7 @@ class _NoteCardState extends State<_NoteCard> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final AppStrings s = AppStrings.of(context);
+    final s = AppStrings.of(context);
     final note = widget.note;
     final bg = note.color.surface(context);
     final accent = note.color.accent(context);
@@ -466,7 +450,6 @@ class _NoteCardState extends State<_NoteCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Pin icon + title row — sağda hover butonları için yer bırak
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -489,8 +472,7 @@ class _NoteCardState extends State<_NoteCard> {
                           ],
                         ),
                       ),
-                      // Hover butonları için sabit yer — her zaman var ama görünmez
-                      if (_hovered) const SizedBox(width: 72) else const SizedBox(width: 0),
+                      if (_hovered) const SizedBox(width: 72) else const SizedBox.shrink(),
                     ],
                   ),
                   if (note.title.isNotEmpty) const SizedBox(height: 5),
@@ -553,10 +535,42 @@ class _NoteListTile extends StatefulWidget {
 class _NoteListTileState extends State<_NoteListTile> {
   bool _hovered = false;
 
+  void _showContextMenu(BuildContext context, ColorScheme cs) {
+    final s = AppStrings.of(context);
+    final box = context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    showMenu(
+      context: context,
+      color: cs.surface,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      position: RelativeRect.fromLTRB(offset.dx + size.width / 2, offset.dy + size.height / 2, offset.dx + size.width, offset.dy + size.height),
+      items: [
+        PopupMenuItem(
+          onTap: widget.onPin,
+          child: _ContextMenuItem(
+            icon: widget.note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+            label: widget.note.isPinned ? s.unpin : s.pin,
+            cs: cs,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: widget.onArchive,
+          child: _ContextMenuItem(icon: Icons.archive_outlined, label: s.archive, cs: cs),
+        ),
+        PopupMenuItem(
+          onTap: widget.onDelete,
+          child: _ContextMenuItem(icon: Icons.delete_outline_rounded, label: s.delete, cs: cs, danger: true),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final AppStrings s = AppStrings.of(context);
+    final s = AppStrings.of(context);
     final note = widget.note;
     final bg = note.color.surface(context);
     final accent = note.color.accent(context);
@@ -636,39 +650,6 @@ class _NoteListTileState extends State<_NoteListTile> {
       ),
     );
   }
-
-  void _showContextMenu(BuildContext context, ColorScheme cs) {
-    final AppStrings s = AppStrings.of(context);
-    final box = context.findRenderObject() as RenderBox;
-    final offset = box.localToGlobal(Offset.zero);
-    final size = box.size;
-
-    showMenu(
-      context: context,
-      color: cs.surface,
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      position: RelativeRect.fromLTRB(offset.dx + size.width / 2, offset.dy + size.height / 2, offset.dx + size.width, offset.dy + size.height),
-      items: [
-        PopupMenuItem(
-          onTap: widget.onPin,
-          child: _ContextMenuItem(
-            icon: widget.note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-            label: widget.note.isPinned ? s.unpin : s.pin,
-            cs: cs,
-          ),
-        ),
-        PopupMenuItem(
-          onTap: widget.onArchive,
-          child: _ContextMenuItem(icon: Icons.archive_outlined, label: s.archive, cs: cs),
-        ),
-        PopupMenuItem(
-          onTap: widget.onDelete,
-          child: _ContextMenuItem(icon: Icons.delete_outline_rounded, label: s.delete, cs: cs, danger: true),
-        ),
-      ],
-    );
-  }
 }
 
 // ── Editor Page ───────────────────────────────────────────────────────────────
@@ -685,45 +666,64 @@ class _NoteEditorPage extends StatefulWidget {
 
 class _NoteEditorPageState extends State<_NoteEditorPage> {
   late final TextEditingController _titleCtrl;
-  late final TextEditingController _contentCtrl;
   late final TextEditingController _tagCtrl;
+  late final quill.QuillController _quillCtrl;
   late List<String> _tags;
   late NoteColor _color;
   late bool _isPinned;
+  final _editorFocusNode = FocusNode();
+  final _editorScrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
     final n = widget.note;
     _titleCtrl = TextEditingController(text: n?.title ?? '');
-    _contentCtrl = TextEditingController(text: n?.content ?? '');
     _tagCtrl = TextEditingController();
     _tags = List<String>.from(n?.tags ?? []);
     _color = n?.color ?? NoteColor.none;
     _isPinned = n?.isPinned ?? false;
+
+    // Load existing Quill delta or start empty
+    if (n != null && n.contentJson.isNotEmpty) {
+      try {
+        final doc = quill.Document.fromJson(List<Map>.from(n.contentJson));
+        _quillCtrl = quill.QuillController(document: doc, selection: const TextSelection.collapsed(offset: 0));
+      } catch (_) {
+        _quillCtrl = quill.QuillController.basic();
+      }
+    } else {
+      _quillCtrl = quill.QuillController.basic();
+    }
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _contentCtrl.dispose();
     _tagCtrl.dispose();
+    _quillCtrl.dispose();
+    _editorFocusNode.dispose();
+    _editorScrollCtrl.dispose();
     super.dispose();
   }
 
-  Note _buildNote() => Note(
-    id: widget.note?.id ?? const Uuid().v4(),
-    title: _titleCtrl.text.trim(),
-    content: _contentCtrl.text.trim(),
-    tags: _tags,
-    color: _color,
-    isPinned: _isPinned,
-    createdAt: widget.note?.createdAt ?? DateTime.now(),
-    updatedAt: DateTime.now(),
-  );
+  Note _buildNote() {
+    final delta = _quillCtrl.document.toDelta().toJson();
+    final plainText = Note.deltaToPlainText(delta);
+    return Note(
+      id: widget.note?.id ?? const Uuid().v4(),
+      title: _titleCtrl.text.trim(),
+      content: plainText,
+      contentJson: delta,
+      tags: _tags,
+      color: _color,
+      isPinned: _isPinned,
+      createdAt: widget.note?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
 
   void _save() => Navigator.pop(context, _SaveResult(_buildNote()));
-
   void _archive() => Navigator.pop(context, _ArchiveResult(_buildNote()));
 
   void _addTag(String raw) {
@@ -739,7 +739,8 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final AppStrings s = AppStrings.of(context);
+    final s = AppStrings.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = _color.surface(context);
     final accent = _color.accent(context);
 
@@ -756,46 +757,24 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
         backgroundColor: bg,
         body: Column(
           children: [
-            // Toolbar
-            Container(
-              padding: EdgeInsets.fromLTRB(16, Platform.isMacOS ? 10 : 16, 16, 0),
-              child: Row(
-                children: [
-                  SizedBox(width: Platform.isMacOS ? 72 : 0),
-                  // Back
-                  _ToolbarBtn(icon: Icons.arrow_back_rounded, onTap: () => Navigator.pop(context), cs: cs),
-                  const SizedBox(width: 6),
-                  // Pin toggle
-                  _ToolbarBtn(
-                    icon: _isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                    onTap: () => setState(() => _isPinned = !_isPinned),
-                    cs: cs,
-                    active: _isPinned,
-                    accent: accent,
-                  ),
-                  const SizedBox(width: 6),
-                  // Archive
-                  _ToolbarBtn(icon: Icons.archive_outlined, onTap: _archive, cs: cs, tooltip: s.archiveThisNote),
-                  const Spacer(),
-                  // Color picker
-                  ..._colorDots(cs),
-                  const SizedBox(width: 10),
-                  // Save
-                  FilledButton(
-                    onPressed: _save,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: accent,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(72, 36),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text(s.save, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  ),
-                ],
-              ),
+            // ── Top toolbar ─────────────────────────────────────────────────
+            _TopToolbar(
+              isPinned: _isPinned,
+              color: _color,
+              accent: accent,
+              isDark: isDark,
+              cs: cs,
+              s: s,
+              onBack: () => Navigator.pop(context),
+              onPin: () => setState(() => _isPinned = !_isPinned),
+              onArchive: _archive,
+              onColorChange: (c) => setState(() => _color = c),
+              onSave: _save,
             ),
-            const SizedBox(height: 16),
-            // Title
+            // ── Formatting toolbar ──────────────────────────────────────────
+            _FormattingToolbar(controller: _quillCtrl, accent: accent, isDark: isDark, cs: cs),
+            const SizedBox(height: 8),
+            // ── Title ───────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: TextField(
@@ -809,58 +788,35 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
                 ),
               ),
             ),
-            // Content
+            const SizedBox(height: 8),
+            // ── Quill editor ────────────────────────────────────────────────
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: TextField(
-                  controller: _contentCtrl,
-                  maxLines: null,
-                  expands: true,
-                  autofocus: widget.note == null,
-                  style: TextStyle(fontSize: 15, color: cs.onSurface.withValues(alpha: 0.85), height: 1.65),
-                  decoration: InputDecoration(
-                    hintText: s.writeYourNote,
-                    hintStyle: TextStyle(fontSize: 15, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: quill.QuillEditor(
+                  controller: _quillCtrl,
+                  focusNode: _editorFocusNode,
+                  scrollController: _editorScrollCtrl,
+                  config: quill.QuillEditorConfig(
+                    autoFocus: widget.note == null,
+                    expands: true,
+                    padding: const EdgeInsets.only(bottom: 40),
+                    placeholder: s.writeYourNote,
+                    customStyles: _quillStyles(cs, isDark),
                   ),
                 ),
               ),
             ),
-            // Tag bar
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25), width: 0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_tags.isNotEmpty) ...[
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: _tags.map((t) => _RemovableTag(tag: t, accent: accent, onRemove: () => setState(() => _tags.remove(t)))).toList(),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  TextField(
-                    controller: _tagCtrl,
-                    onSubmitted: _addTag,
-                    style: TextStyle(fontSize: 13, color: cs.onSurface),
-                    decoration: InputDecoration(
-                      hintText: s.addTag,
-                      hintStyle: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                      prefixIcon: Icon(Icons.tag_rounded, size: 16, color: accent),
-                      filled: true,
-                      fillColor: cs.surfaceContainerLow.withValues(alpha: 0.6),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
+            // ── Tag bar ─────────────────────────────────────────────────────
+            _TagBar(
+              tags: _tags,
+              accent: accent,
+              isDark: isDark,
+              cs: cs,
+              s: s,
+              tagCtrl: _tagCtrl,
+              onAdd: _addTag,
+              onRemove: (t) => setState(() => _tags.remove(t)),
             ),
           ],
         ),
@@ -868,29 +824,480 @@ class _NoteEditorPageState extends State<_NoteEditorPage> {
     );
   }
 
-  List<Widget> _colorDots(ColorScheme cs) {
-    return NoteColor.values.map((c) {
-      final isSelected = _color == c;
-      final dotColor = c == NoteColor.none ? cs.surfaceContainerHigh : c.accent(context);
-      return GestureDetector(
-        onTap: () => setState(() => _color = c),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: isSelected ? 22 : 16,
-          height: isSelected ? 22 : 16,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: dotColor,
-            border: isSelected ? Border.all(color: cs.onSurface.withValues(alpha: 0.25), width: 2) : null,
-          ),
+  quill.DefaultStyles _quillStyles(ColorScheme cs, bool isDark) {
+    final baseColor = cs.onSurface.withValues(alpha: 0.85);
+    final base = TextStyle(fontSize: 15, color: baseColor, height: 1.65);
+    return quill.DefaultStyles(
+      paragraph: quill.DefaultTextBlockStyle(
+        base,
+        const quill.HorizontalSpacing(0, 0),
+        const quill.VerticalSpacing(0, 0),
+        const quill.VerticalSpacing(0, 0),
+        null,
+      ),
+      bold: base.copyWith(fontWeight: FontWeight.bold),
+      italic: base.copyWith(fontStyle: FontStyle.italic),
+      underline: base.copyWith(decoration: TextDecoration.underline),
+      strikeThrough: base.copyWith(decoration: TextDecoration.lineThrough),
+      h1: quill.DefaultTextBlockStyle(
+        base.copyWith(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+        const quill.HorizontalSpacing(0, 0),
+        const quill.VerticalSpacing(12, 4),
+        const quill.VerticalSpacing(0, 0),
+        null,
+      ),
+      h2: quill.DefaultTextBlockStyle(
+        base.copyWith(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+        const quill.HorizontalSpacing(0, 0),
+        const quill.VerticalSpacing(10, 4),
+        const quill.VerticalSpacing(0, 0),
+        null,
+      ),
+      h3: quill.DefaultTextBlockStyle(
+        base.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+        const quill.HorizontalSpacing(0, 0),
+        const quill.VerticalSpacing(8, 4),
+        const quill.VerticalSpacing(0, 0),
+        null,
+      ),
+      lists: quill.DefaultListBlockStyle(
+        base,
+        const quill.HorizontalSpacing(0, 0),
+        const quill.VerticalSpacing(4, 0),
+        const quill.VerticalSpacing(0, 0),
+        null,
+        null,
+      ),
+      quote: quill.DefaultTextBlockStyle(
+        base.copyWith(color: cs.onSurface.withValues(alpha: 0.55), fontStyle: FontStyle.italic),
+        const quill.HorizontalSpacing(8, 8),
+        const quill.VerticalSpacing(0, 0),
+        const quill.VerticalSpacing(0, 0),
+        BoxDecoration(
+          border: Border(left: BorderSide(color: cs.primary.withValues(alpha: 0.5), width: 3)),
         ),
-      );
-    }).toList();
+      ),
+      code: quill.DefaultTextBlockStyle(
+        base.copyWith(fontFamily: 'monospace', fontSize: 13, color: cs.primary, backgroundColor: cs.primary.withValues(alpha: 0.08)),
+        const quill.HorizontalSpacing(8, 8),
+        const quill.VerticalSpacing(0, 0),
+        const quill.VerticalSpacing(0, 0),
+        BoxDecoration(color: cs.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(6)),
+      ),
+    );
+  }
+}
+// ── Top Toolbar ───────────────────────────────────────────────────────────────
+
+class _TopToolbar extends StatelessWidget {
+  final bool isPinned;
+  final NoteColor color;
+  final Color accent;
+  final bool isDark;
+  final ColorScheme cs;
+  final AppStrings s;
+  final VoidCallback onBack;
+  final VoidCallback onPin;
+  final VoidCallback onArchive;
+  final ValueChanged<NoteColor> onColorChange;
+  final VoidCallback onSave;
+
+  const _TopToolbar({
+    required this.isPinned,
+    required this.color,
+    required this.accent,
+    required this.isDark,
+    required this.cs,
+    required this.s,
+    required this.onBack,
+    required this.onPin,
+    required this.onArchive,
+    required this.onColorChange,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, Platform.isMacOS ? 10 : 16, 16, 0),
+      child: Row(
+        children: [
+          SizedBox(width: Platform.isMacOS ? 72 : 0),
+          _Btn(icon: Icons.arrow_back_rounded, onTap: onBack, isDark: isDark, cs: cs),
+          const SizedBox(width: 6),
+          _Btn(icon: isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined, onTap: onPin, isDark: isDark, cs: cs, active: isPinned, accent: accent),
+          const SizedBox(width: 6),
+          _Btn(icon: Icons.archive_outlined, onTap: onArchive, isDark: isDark, cs: cs, tooltip: s.archiveThisNote),
+          const Spacer(),
+          // Color dots
+          ...NoteColor.values.map((c) {
+            final isSelected = color == c;
+            final dotColor = c == NoteColor.none ? (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.15)) : c.accent(context);
+            return GestureDetector(
+              onTap: () => onColorChange(c),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: isSelected ? 22 : 16,
+                height: isSelected ? 22 : 16,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: dotColor,
+                  border: isSelected ? Border.all(color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.2), width: 2) : null,
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: onSave,
+            style: FilledButton.styleFrom(
+              backgroundColor: accent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(72, 36),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text(s.save, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-// ── Reusable small widgets ────────────────────────────────────────────────────
+// ── Formatting Toolbar ────────────────────────────────────────────────────────
+
+class _FormattingToolbar extends StatelessWidget {
+  final quill.QuillController controller;
+  final Color accent;
+  final bool isDark;
+  final ColorScheme cs;
+
+  const _FormattingToolbar({required this.controller, required this.accent, required this.isDark, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final dividerColor = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06);
+    final bgColor = isDark ? Colors.black.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.04);
+
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: dividerColor, width: 0.5),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            // Headings
+            _FmtBtn(label: 'H1', isText: true, onTap: () => _toggleHeader(context, 1), isDark: isDark, cs: cs, isActive: _isHeaderActive(1), accent: accent),
+            _FmtBtn(label: 'H2', isText: true, onTap: () => _toggleHeader(context, 2), isDark: isDark, cs: cs, isActive: _isHeaderActive(2), accent: accent),
+            _FmtBtn(label: 'H3', isText: true, onTap: () => _toggleHeader(context, 3), isDark: isDark, cs: cs, isActive: _isHeaderActive(3), accent: accent),
+            _Divider(color: dividerColor),
+            // Text formatting
+            _FmtBtn(
+              icon: Icons.format_bold_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.bold),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.bold),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_italic_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.italic),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.italic),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_underline_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.underline),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.underline),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_strikethrough_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.strikeThrough),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.strikeThrough),
+              accent: accent,
+            ),
+            _Divider(color: dividerColor),
+            // Lists
+            _FmtBtn(
+              icon: Icons.format_list_bulleted_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.ul),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.ul),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_list_numbered_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.ol),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.ol),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.checklist_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.unchecked),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.unchecked),
+              accent: accent,
+            ),
+            _Divider(color: dividerColor),
+            // Alignment
+            _FmtBtn(
+              icon: Icons.format_align_left_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.leftAlignment),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.leftAlignment),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_align_center_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.centerAlignment),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.centerAlignment),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.format_align_right_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.rightAlignment),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.rightAlignment),
+              accent: accent,
+            ),
+            _Divider(color: dividerColor),
+            // Block
+            _FmtBtn(
+              icon: Icons.format_quote_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.blockQuote),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.blockQuote),
+              accent: accent,
+            ),
+            _FmtBtn(
+              icon: Icons.code_rounded,
+              onTap: () => controller.formatSelection(quill.Attribute.codeBlock),
+              isDark: isDark,
+              cs: cs,
+              isActive: _isActive(quill.Attribute.codeBlock),
+              accent: accent,
+            ),
+            _Divider(color: dividerColor),
+            // Indent
+            _FmtBtn(icon: Icons.format_indent_decrease_rounded, onTap: () => controller.indentSelection(false), isDark: isDark, cs: cs, accent: accent),
+            _FmtBtn(icon: Icons.format_indent_increase_rounded, onTap: () => controller.indentSelection(true), isDark: isDark, cs: cs, accent: accent),
+            _Divider(color: dividerColor),
+            // Clear formatting
+            _FmtBtn(
+              icon: Icons.format_clear_rounded,
+              onTap: () {
+                controller.formatSelection(quill.Attribute.clone(quill.Attribute.bold, null));
+                controller.formatSelection(quill.Attribute.clone(quill.Attribute.italic, null));
+                controller.formatSelection(quill.Attribute.clone(quill.Attribute.underline, null));
+              },
+              isDark: isDark,
+              cs: cs,
+              accent: accent,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isActive(quill.Attribute attr) {
+    final style = controller.getSelectionStyle();
+    final val = style.attributes[attr.key];
+    return val != null && val.value != null;
+  }
+
+  bool _isHeaderActive(int level) {
+    final style = controller.getSelectionStyle();
+    final val = style.attributes[quill.Attribute.header.key];
+    return val?.value == level;
+  }
+
+  void _toggleHeader(BuildContext context, int level) {
+    final isActive = _isHeaderActive(level);
+    controller.formatSelection(isActive ? quill.Attribute.clone(quill.Attribute.header, null) : quill.HeaderAttribute(level: level));
+  }
+}
+
+// ── Tag Bar ───────────────────────────────────────────────────────────────────
+
+class _TagBar extends StatelessWidget {
+  final List<String> tags;
+  final Color accent;
+  final bool isDark;
+  final ColorScheme cs;
+  final AppStrings s;
+  final TextEditingController tagCtrl;
+  final ValueChanged<String> onAdd;
+  final ValueChanged<String> onRemove;
+
+  const _TagBar({
+    required this.tags,
+    required this.accent,
+    required this.isDark,
+    required this.cs,
+    required this.s,
+    required this.tagCtrl,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.black.withValues(alpha: 0.05),
+        border: Border(top: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08), width: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (tags.isNotEmpty) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: tags.map((t) => _RemovableTag(tag: t, accent: accent, onRemove: () => onRemove(t))).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          TextField(
+            controller: tagCtrl,
+            onSubmitted: onAdd,
+            style: TextStyle(fontSize: 13, color: cs.onSurface),
+            decoration: InputDecoration(
+              hintText: s.addTag,
+              hintStyle: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              prefixIcon: Icon(Icons.tag_rounded, size: 16, color: accent),
+              filled: true,
+              fillColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Small toolbar button ──────────────────────────────────────────────────────
+
+class _Btn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
+  final bool active;
+  final Color? accent;
+  final String? tooltip;
+
+  const _Btn({required this.icon, required this.onTap, required this.isDark, required this.cs, this.active = false, this.accent, this.tooltip});
+
+  @override
+  Widget build(BuildContext context) {
+    final btnColor = active
+        ? (accent ?? cs.primary).withValues(alpha: 0.18)
+        : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.07));
+    final iconColor = active ? (accent ?? cs.primary) : (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.65));
+
+    final btn = Material(
+      color: btnColor,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+      ),
+    );
+    if (tooltip != null) return Tooltip(message: tooltip!, child: btn);
+    return btn;
+  }
+}
+
+// ── Formatting toolbar button ─────────────────────────────────────────────────
+
+class _FmtBtn extends StatelessWidget {
+  final IconData? icon;
+  final String? label;
+  final bool isText;
+  final VoidCallback onTap;
+  final bool isDark;
+  final ColorScheme cs;
+  final bool isActive;
+  final Color accent;
+
+  const _FmtBtn({
+    this.icon,
+    this.label,
+    this.isText = false,
+    required this.onTap,
+    required this.isDark,
+    required this.cs,
+    this.isActive = false,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = accent;
+    final inactiveColor = isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.55);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: isActive ? accent.withValues(alpha: 0.15) : Colors.transparent, borderRadius: BorderRadius.circular(6)),
+        child: isText
+            ? Text(
+                label!,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isActive ? activeColor : inactiveColor),
+              )
+            : Icon(icon!, size: 16, color: isActive ? activeColor : inactiveColor),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  final Color color;
+  const _Divider({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 0.5, height: 20, margin: const EdgeInsets.symmetric(horizontal: 4), color: color);
+  }
+}
+
+// ── Shared small widgets ──────────────────────────────────────────────────────
 
 class _TagChip extends StatelessWidget {
   final String label;
@@ -924,7 +1331,6 @@ class _TagChip extends StatelessWidget {
 class _MiniTag extends StatelessWidget {
   final String tag;
   final Color accent;
-
   const _MiniTag({required this.tag, required this.accent});
 
   @override
@@ -944,7 +1350,6 @@ class _RemovableTag extends StatelessWidget {
   final String tag;
   final Color accent;
   final VoidCallback onRemove;
-
   const _RemovableTag({required this.tag, required this.accent, required this.onRemove});
 
   @override
@@ -974,7 +1379,6 @@ class _ActionDot extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-
   const _ActionDot({required this.icon, required this.color, required this.onTap});
 
   @override
@@ -991,44 +1395,11 @@ class _ActionDot extends StatelessWidget {
   }
 }
 
-class _ToolbarBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final bool active;
-  final Color? accent;
-  final String? tooltip;
-
-  const _ToolbarBtn({required this.icon, required this.onTap, required this.cs, this.active = false, this.accent, this.tooltip});
-
-  @override
-  Widget build(BuildContext context) {
-    final btn = Material(
-      color: active ? (accent ?? cs.primary).withValues(alpha: 0.12) : cs.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 18, color: active ? (accent ?? cs.primary) : cs.onSurfaceVariant),
-        ),
-      ),
-    );
-
-    if (tooltip != null) {
-      return Tooltip(message: tooltip!, child: btn);
-    }
-    return btn;
-  }
-}
-
 class _ContextMenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final ColorScheme cs;
   final bool danger;
-
   const _ContextMenuItem({required this.icon, required this.label, required this.cs, this.danger = false});
 
   @override
@@ -1048,7 +1419,6 @@ class _ContextMenuItem extends StatelessWidget {
 
 String _relativeTime(DateTime dt, AppStrings s) {
   final diff = DateTime.now().difference(dt);
-
   if (diff.inMinutes < 1) return s.justNow;
   if (diff.inHours < 1) return '${diff.inMinutes}${s.minutesAgo}';
   if (diff.inDays < 1) return '${diff.inHours}${s.hoursAgo}';

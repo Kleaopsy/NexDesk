@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:nexdesk/core/l10n/app_strings.dart';
 import 'package:nexdesk/core/services/notes_service.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/project_service.dart';
+import '../notes/notes_screen.dart' show NoteColorX;
 
 class ProjectDetailScreen extends StatefulWidget {
   final Project project;
@@ -626,6 +626,10 @@ class _LinkedNoteTileState extends State<_LinkedNoteTile> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final note = widget.note;
+    // Reconstruct NoteColor from stored data
+    final noteColor = note.color;
+    final hasColor = noteColor != NoteColor.none;
+    final accentColor = hasColor ? noteColor.accent(context) : cs.onSurfaceVariant;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -636,13 +640,25 @@ class _LinkedNoteTileState extends State<_LinkedNoteTile> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: cs.surface,
+            color: hasColor ? noteColor.surface(context) : cs.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _hovered ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant.withValues(alpha: 0.25), width: _hovered ? 1 : 0.5),
+            border: Border.all(
+              color: _hovered
+                  ? (hasColor ? accentColor.withValues(alpha: 0.5) : cs.primary.withValues(alpha: 0.4))
+                  : (hasColor ? accentColor.withValues(alpha: 0.2) : cs.outlineVariant.withValues(alpha: 0.25)),
+              width: _hovered ? 1 : 0.5,
+            ),
           ),
           child: Row(
             children: [
-              Icon(Icons.sticky_note_2_outlined, size: 16, color: cs.onSurfaceVariant),
+              // Color dot
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: accentColor),
+              ),
+              Icon(Icons.sticky_note_2_outlined, size: 16, color: hasColor ? accentColor : cs.onSurfaceVariant),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -671,10 +687,8 @@ class _LinkedNoteTileState extends State<_LinkedNoteTile> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Open hint
-                    Icon(Icons.open_in_new_rounded, size: 13, color: cs.primary),
+                    Icon(Icons.open_in_new_rounded, size: 13, color: hasColor ? accentColor : cs.primary),
                     const SizedBox(width: 8),
-                    // Unlink
                     GestureDetector(
                       onTap: widget.onUnlink,
                       child: Icon(Icons.link_off_rounded, size: 13, color: cs.error),
@@ -1064,6 +1078,9 @@ class _NoteReaderOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s = AppStrings.of(context);
+    final bg = note.color.surface(context);
+    final accent = note.color.accent(context);
+    final hasColor = note.color != NoteColor.none;
 
     return AnimatedBuilder(
       animation: animation,
@@ -1075,7 +1092,7 @@ class _NoteReaderOverlay extends StatelessWidget {
         );
       },
       child: Scaffold(
-        backgroundColor: cs.surface,
+        backgroundColor: bg, // ← note rengi
         body: Column(
           children: [
             // Toolbar
@@ -1085,7 +1102,7 @@ class _NoteReaderOverlay extends StatelessWidget {
                 children: [
                   SizedBox(width: Platform.isMacOS ? 72 : 0),
                   Material(
-                    color: cs.surfaceContainerLow,
+                    color: cs.surfaceContainerLow.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
                       onTap: () => Navigator.pop(context),
@@ -1100,7 +1117,7 @@ class _NoteReaderOverlay extends StatelessWidget {
                   // Read-only badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(color: cs.surfaceContainerHigh.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(6)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1113,8 +1130,19 @@ class _NoteReaderOverlay extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (note.isPinned) ...[const SizedBox(width: 8), Icon(Icons.push_pin_rounded, size: 14, color: cs.primary.withValues(alpha: 0.7))],
+                  if (note.isPinned) ...[
+                    const SizedBox(width: 8),
+                    Icon(Icons.push_pin_rounded, size: 14, color: hasColor ? accent : cs.primary.withValues(alpha: 0.7)),
+                  ],
                   const Spacer(),
+                  // Color indicator pill
+                  if (hasColor)
+                    Container(
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: accent),
+                    ),
                   Text(_relativeTime(note.updatedAt), style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                 ],
               ),
@@ -1149,7 +1177,7 @@ class _NoteReaderOverlay extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
                 decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25), width: 0.5)),
+                  border: Border(top: BorderSide(color: hasColor ? accent.withValues(alpha: 0.2) : cs.outlineVariant.withValues(alpha: 0.25), width: 0.5)),
                 ),
                 child: Wrap(
                   spacing: 6,
@@ -1158,10 +1186,13 @@ class _NoteReaderOverlay extends StatelessWidget {
                       .map(
                         (t) => Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: cs.primaryContainer.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(
+                            color: hasColor ? accent.withValues(alpha: 0.15) : cs.primaryContainer.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                           child: Text(
                             '#$t',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cs.primary),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: hasColor ? accent : cs.primary),
                           ),
                         ),
                       )
