@@ -967,7 +967,7 @@ class _TopToolbar extends StatelessWidget {
 
 // ── Formatting Toolbar ────────────────────────────────────────────────────────
 
-class _FormattingToolbar extends StatelessWidget {
+class _FormattingToolbar extends StatefulWidget {
   final quill.QuillController controller;
   final Color accent;
   final bool isDark;
@@ -976,7 +976,33 @@ class _FormattingToolbar extends StatelessWidget {
   const _FormattingToolbar({required this.controller, required this.accent, required this.isDark, required this.cs});
 
   @override
+  State<_FormattingToolbar> createState() => _FormattingToolbarState();
+}
+
+class _FormattingToolbarState extends State<_FormattingToolbar> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChange);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChange);
+    super.dispose();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final accent = widget.accent;
+    final isDark = widget.isDark;
+    final cs = widget.cs;
+
     final dividerColor = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06);
     final bgColor = isDark ? Colors.black.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.04);
 
@@ -993,15 +1019,13 @@ class _FormattingToolbar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: Row(
           children: [
-            // Headings
-            _FmtBtn(label: 'H1', isText: true, onTap: () => _toggleHeader(context, 1), isDark: isDark, cs: cs, isActive: _isHeaderActive(1), accent: accent),
-            _FmtBtn(label: 'H2', isText: true, onTap: () => _toggleHeader(context, 2), isDark: isDark, cs: cs, isActive: _isHeaderActive(2), accent: accent),
-            _FmtBtn(label: 'H3', isText: true, onTap: () => _toggleHeader(context, 3), isDark: isDark, cs: cs, isActive: _isHeaderActive(3), accent: accent),
+            _FmtBtn(label: 'H1', isText: true, onTap: () => _toggleHeader(1), isDark: isDark, cs: cs, isActive: _isHeaderActive(1), accent: accent),
+            _FmtBtn(label: 'H2', isText: true, onTap: () => _toggleHeader(2), isDark: isDark, cs: cs, isActive: _isHeaderActive(2), accent: accent),
+            _FmtBtn(label: 'H3', isText: true, onTap: () => _toggleHeader(3), isDark: isDark, cs: cs, isActive: _isHeaderActive(3), accent: accent),
             _Divider(color: dividerColor),
-            // Text formatting
             _FmtBtn(
               icon: Icons.format_bold_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.bold),
+              onTap: () => _toggle(quill.Attribute.bold),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.bold),
@@ -1009,7 +1033,7 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.format_italic_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.italic),
+              onTap: () => _toggle(quill.Attribute.italic),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.italic),
@@ -1017,7 +1041,7 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.format_underline_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.underline),
+              onTap: () => _toggle(quill.Attribute.underline),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.underline),
@@ -1025,17 +1049,16 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.format_strikethrough_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.strikeThrough),
+              onTap: () => _toggle(quill.Attribute.strikeThrough),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.strikeThrough),
               accent: accent,
             ),
             _Divider(color: dividerColor),
-            // Lists
             _FmtBtn(
               icon: Icons.format_list_bulleted_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.ul),
+              onTap: () => _toggle(quill.Attribute.ul),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.ul),
@@ -1043,7 +1066,7 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.format_list_numbered_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.ol),
+              onTap: () => _toggle(quill.Attribute.ol),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.ol),
@@ -1051,20 +1074,19 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.checklist_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.unchecked),
+              onTap: () => _toggle(quill.Attribute.unchecked),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.unchecked),
               accent: accent,
             ),
             _Divider(color: dividerColor),
-            // Alignment
             _FmtBtn(
               icon: Icons.format_align_left_rounded,
               onTap: () => controller.formatSelection(quill.Attribute.leftAlignment),
               isDark: isDark,
               cs: cs,
-              isActive: _isActive(quill.Attribute.leftAlignment),
+              isActive: _isAlignActive(null),
               accent: accent,
             ),
             _FmtBtn(
@@ -1072,7 +1094,7 @@ class _FormattingToolbar extends StatelessWidget {
               onTap: () => controller.formatSelection(quill.Attribute.centerAlignment),
               isDark: isDark,
               cs: cs,
-              isActive: _isActive(quill.Attribute.centerAlignment),
+              isActive: _isAlignActive('center'),
               accent: accent,
             ),
             _FmtBtn(
@@ -1080,14 +1102,13 @@ class _FormattingToolbar extends StatelessWidget {
               onTap: () => controller.formatSelection(quill.Attribute.rightAlignment),
               isDark: isDark,
               cs: cs,
-              isActive: _isActive(quill.Attribute.rightAlignment),
+              isActive: _isAlignActive('right'),
               accent: accent,
             ),
             _Divider(color: dividerColor),
-            // Block
             _FmtBtn(
               icon: Icons.format_quote_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.blockQuote),
+              onTap: () => _toggle(quill.Attribute.blockQuote),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.blockQuote),
@@ -1095,24 +1116,23 @@ class _FormattingToolbar extends StatelessWidget {
             ),
             _FmtBtn(
               icon: Icons.code_rounded,
-              onTap: () => controller.formatSelection(quill.Attribute.codeBlock),
+              onTap: () => _toggle(quill.Attribute.codeBlock),
               isDark: isDark,
               cs: cs,
               isActive: _isActive(quill.Attribute.codeBlock),
               accent: accent,
             ),
             _Divider(color: dividerColor),
-            // Indent
             _FmtBtn(icon: Icons.format_indent_decrease_rounded, onTap: () => controller.indentSelection(false), isDark: isDark, cs: cs, accent: accent),
             _FmtBtn(icon: Icons.format_indent_increase_rounded, onTap: () => controller.indentSelection(true), isDark: isDark, cs: cs, accent: accent),
             _Divider(color: dividerColor),
-            // Clear formatting
             _FmtBtn(
               icon: Icons.format_clear_rounded,
               onTap: () {
                 controller.formatSelection(quill.Attribute.clone(quill.Attribute.bold, null));
                 controller.formatSelection(quill.Attribute.clone(quill.Attribute.italic, null));
                 controller.formatSelection(quill.Attribute.clone(quill.Attribute.underline, null));
+                controller.formatSelection(quill.Attribute.clone(quill.Attribute.strikeThrough, null));
               },
               isDark: isDark,
               cs: cs,
@@ -1124,24 +1144,43 @@ class _FormattingToolbar extends StatelessWidget {
     );
   }
 
+  /// Toggle bir attribute'u — aktifse kaldırır, pasifse uygular.
+  void _toggle(quill.Attribute attr) {
+    final isActive = _isActive(attr);
+    widget.controller.formatSelection(isActive ? quill.Attribute.clone(attr, null) : attr);
+  }
+
+  /// Genel aktiflik kontrolü: attr.value ile selection'daki değeri karşılaştırır.
   bool _isActive(quill.Attribute attr) {
-    final style = controller.getSelectionStyle();
+    final style = widget.controller.getSelectionStyle();
     final val = style.attributes[attr.key];
-    return val != null && val.value != null;
+    if (attr.value == null) {
+      return val == null;
+    }
+    return val?.value == attr.value;
+  }
+
+  /// Hizalama kontrolü — 'left' default'tur (attribute yoksa left aktif).
+  bool _isAlignActive(String? alignValue) {
+    final style = widget.controller.getSelectionStyle();
+    final val = style.attributes[quill.Attribute.align.key];
+    if (alignValue == null) {
+      return val == null; // left = default, attribute yok
+    }
+    return val?.value == alignValue;
   }
 
   bool _isHeaderActive(int level) {
-    final style = controller.getSelectionStyle();
+    final style = widget.controller.getSelectionStyle();
     final val = style.attributes[quill.Attribute.header.key];
     return val?.value == level;
   }
 
-  void _toggleHeader(BuildContext context, int level) {
+  void _toggleHeader(int level) {
     final isActive = _isHeaderActive(level);
-    controller.formatSelection(isActive ? quill.Attribute.clone(quill.Attribute.header, null) : quill.HeaderAttribute(level: level));
+    widget.controller.formatSelection(isActive ? quill.Attribute.clone(quill.Attribute.header, null) : quill.HeaderAttribute(level: level));
   }
 }
-
 // ── Tag Bar ───────────────────────────────────────────────────────────────────
 
 class _TagBar extends StatelessWidget {

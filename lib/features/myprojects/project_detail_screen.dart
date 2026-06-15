@@ -5,6 +5,7 @@ import 'package:nexdesk/core/services/notes_service.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/project_service.dart';
 import '../notes/notes_screen.dart' show NoteColorX;
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 
 class ProjectDetailScreen extends StatefulWidget {
   final Project project;
@@ -1068,31 +1069,62 @@ class _FilterChipSmall extends StatelessWidget {
 }
 // ── Note Reader Overlay ───────────────────────────────────────────────────────
 
-class _NoteReaderOverlay extends StatelessWidget {
+class _NoteReaderOverlay extends StatefulWidget {
   final Note note;
   final Animation<double> animation;
 
   const _NoteReaderOverlay({required this.note, required this.animation});
 
   @override
+  State<_NoteReaderOverlay> createState() => _NoteReaderOverlayState();
+}
+
+class _NoteReaderOverlayState extends State<_NoteReaderOverlay> {
+  late final quill.QuillController _quillCtrl;
+  final _focusNode = FocusNode(skipTraversal: true, canRequestFocus: false);
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final n = widget.note;
+    if (n.contentJson.isNotEmpty) {
+      try {
+        final doc = quill.Document.fromJson(List<Map>.from(n.contentJson));
+        _quillCtrl = quill.QuillController(document: doc, selection: const TextSelection.collapsed(offset: 0));
+      } catch (_) {}
+    } else {}
+  }
+
+  @override
+  void dispose() {
+    _quillCtrl.dispose();
+    _focusNode.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s = AppStrings.of(context);
+    final note = widget.note;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = note.color.surface(context);
     final accent = note.color.accent(context);
     final hasColor = note.color != NoteColor.none;
 
     return AnimatedBuilder(
-      animation: animation,
+      animation: widget.animation,
       builder: (context, child) {
-        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final curve = CurvedAnimation(parent: widget.animation, curve: Curves.easeOutCubic);
         return FadeTransition(
           opacity: curve,
           child: ScaleTransition(scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve), child: child),
         );
       },
       child: Scaffold(
-        backgroundColor: bg, // ← note rengi
+        backgroundColor: bg,
         body: Column(
           children: [
             // Toolbar
@@ -1101,41 +1133,16 @@ class _NoteReaderOverlay extends StatelessWidget {
               child: Row(
                 children: [
                   SizedBox(width: Platform.isMacOS ? 72 : 0),
-                  Material(
-                    color: cs.surfaceContainerLow.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(Icons.arrow_back_rounded, size: 18, color: cs.onSurfaceVariant),
-                      ),
-                    ),
-                  ),
+                  // Back
+                  _ReaderBtn(icon: Icons.arrow_back_rounded, onTap: () => Navigator.pop(context), isDark: isDark),
                   const SizedBox(width: 10),
                   // Read-only badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: cs.surfaceContainerHigh.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(6)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.lock_outline_rounded, size: 11, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 4),
-                        Text(
-                          s.readOnly,
-                          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _ReaderBadge(icon: Icons.lock_outline_rounded, label: s.readOnly, isDark: isDark),
                   if (note.isPinned) ...[
                     const SizedBox(width: 8),
                     Icon(Icons.push_pin_rounded, size: 14, color: hasColor ? accent : cs.primary.withValues(alpha: 0.7)),
                   ],
                   const Spacer(),
-                  // Color indicator pill
                   if (hasColor)
                     Container(
                       width: 10,
@@ -1143,7 +1150,7 @@ class _NoteReaderOverlay extends StatelessWidget {
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(shape: BoxShape.circle, color: accent),
                     ),
-                  Text(_relativeTime(note.updatedAt), style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                  _ReaderBadge(icon: Icons.access_time_rounded, label: _relativeTime(note.updatedAt), isDark: isDark),
                 ],
               ),
             ),
@@ -1161,13 +1168,26 @@ class _NoteReaderOverlay extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 8),
-            // Content
+            // Content — read-only Quill
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  note.content.isEmpty ? s.emptyNote : note.content,
-                  style: TextStyle(fontSize: 15, color: note.content.isEmpty ? cs.onSurfaceVariant : cs.onSurface.withValues(alpha: 0.85), height: 1.65),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AbsorbPointer(
+                  absorbing: true,
+                  child: quill.QuillEditor(
+                    controller: _quillCtrl,
+                    focusNode: _focusNode,
+                    scrollController: _scrollCtrl,
+                    config: quill.QuillEditorConfig(
+                      expands: true,
+                      scrollable: true,
+                      padding: const EdgeInsets.only(bottom: 40),
+                      placeholder: s.emptyNote,
+                      customStyles: _readerQuillStyles(cs, isDark),
+                      enableInteractiveSelection: true,
+                      enableSelectionToolbar: false,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1211,5 +1231,129 @@ class _NoteReaderOverlay extends StatelessWidget {
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     return '${dt.day}/${dt.month}/${dt.year}';
+  }
+}
+
+// ── Reader-only Quill styles ────────────────────────────────────────────────
+
+quill.DefaultStyles _readerQuillStyles(ColorScheme cs, bool isDark) {
+  final baseColor = cs.onSurface.withValues(alpha: 0.85);
+  final base = TextStyle(fontSize: 15, color: baseColor, height: 1.65);
+  return quill.DefaultStyles(
+    paragraph: quill.DefaultTextBlockStyle(
+      base,
+      const quill.HorizontalSpacing(0, 0),
+      const quill.VerticalSpacing(0, 0),
+      const quill.VerticalSpacing(0, 0),
+      null,
+    ),
+    bold: base.copyWith(fontWeight: FontWeight.bold),
+    italic: base.copyWith(fontStyle: FontStyle.italic),
+    underline: base.copyWith(decoration: TextDecoration.underline),
+    strikeThrough: base.copyWith(decoration: TextDecoration.lineThrough),
+    h1: quill.DefaultTextBlockStyle(
+      base.copyWith(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+      const quill.HorizontalSpacing(0, 0),
+      const quill.VerticalSpacing(12, 4),
+      const quill.VerticalSpacing(0, 0),
+      null,
+    ),
+    h2: quill.DefaultTextBlockStyle(
+      base.copyWith(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+      const quill.HorizontalSpacing(0, 0),
+      const quill.VerticalSpacing(10, 4),
+      const quill.VerticalSpacing(0, 0),
+      null,
+    ),
+    h3: quill.DefaultTextBlockStyle(
+      base.copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+      const quill.HorizontalSpacing(0, 0),
+      const quill.VerticalSpacing(8, 4),
+      const quill.VerticalSpacing(0, 0),
+      null,
+    ),
+    lists: const quill.DefaultListBlockStyle(
+      TextStyle(fontSize: 15),
+      quill.HorizontalSpacing(0, 0),
+      quill.VerticalSpacing(4, 0),
+      quill.VerticalSpacing(0, 0),
+      null,
+      null,
+    ),
+    quote: quill.DefaultTextBlockStyle(
+      base.copyWith(color: cs.onSurface.withValues(alpha: 0.55), fontStyle: FontStyle.italic),
+      const quill.HorizontalSpacing(8, 8),
+      const quill.VerticalSpacing(0, 0),
+      const quill.VerticalSpacing(0, 0),
+      BoxDecoration(
+        border: Border(left: BorderSide(color: cs.primary.withValues(alpha: 0.5), width: 3)),
+      ),
+    ),
+    code: quill.DefaultTextBlockStyle(
+      base.copyWith(fontFamily: 'monospace', fontSize: 13, color: cs.primary, backgroundColor: cs.primary.withValues(alpha: 0.08)),
+      const quill.HorizontalSpacing(8, 8),
+      const quill.VerticalSpacing(0, 0),
+      const quill.VerticalSpacing(0, 0),
+      BoxDecoration(color: cs.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(6)),
+    ),
+  );
+}
+
+// ── Reader toolbar small widgets ──────────────────────────────────────────────
+
+class _ReaderBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _ReaderBtn({required this.icon, required this.onTap, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final btnColor = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.07);
+    final iconColor = isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.65);
+
+    return Material(
+      color: btnColor,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReaderBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+
+  const _ReaderBadge({required this.icon, required this.label, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.07);
+    final fg = isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.65);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
   }
 }
