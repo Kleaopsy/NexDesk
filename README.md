@@ -163,3 +163,55 @@ flutter run -d windows
 ---
 
 ## 📁 Project Structure
+lib/
+├── app/
+│ └── shell.dart # Navigation shell & sidebar
+├── core/
+│ ├── l10n/
+│ │ └── app_strings.dart # EN/TR localization
+│ ├── providers/
+│ │ └── locale_provider.dart
+│ └── services/
+│ ├── notes_service.dart
+│ ├── project_service.dart
+│ └── archive_service.dart
+└── features/
+├── auth/
+├── dashboard/
+├── myprojects/
+├── tasks/
+├── notes/
+├── archive/
+└── settings/
+
+
+---
+
+## 📸 Screenshots
+
+| Dashboard | My Projects | Notes |
+|-----------|-------------|-------|
+| ![](screenshots/dashboard.png) | ![](screenshots/my_projects.png) | ![](screenshots/notes.png) |
+
+| Project Detail | Tasks | Archive |
+|----------------|-------|---------|
+| ![](screenshots/project_detail.png) | ![](screenshots/tasks.png) | ![](screenshots/archive.png) |
+
+---
+
+## 🗺 Roadmap
+
+- [ ] Image & file embedding in notes
+- [ ] Windows build polish
+- [ ] Dashboard widgets customization
+- [ ] Mobile companion app
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">Built with ❤️ using Flutter</p>
