@@ -11,6 +11,28 @@ class AppStrings {
     return AppStrings._(code);
   }
 
+  //Days
+  String get monday => _s('Monday', 'Pazartesi');
+  String get tuesday => _s('Tuesday', 'Salı');
+  String get wednesday => _s('Wednesday', 'Çarşamba');
+  String get thursday => _s('Thursday', 'Perşembe');
+  String get friday => _s('Friday', 'Cuma');
+  String get saturday => _s('Saturday', 'Cumartesi');
+  String get sunday => _s('Sunday', 'Pazar');
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+  String get goodMorning => _s('Good morning', 'Günaydın');
+  String get goodAfternoon => _s('Good afternoon', 'İyi günler');
+  String get goodEvening => _s('Good evening', 'İyi akşamlar');
+  String get activeProjects => _s('Active Projects', 'Aktif Projeler');
+  String get tasksDoneLabel => _s('Tasks Done', 'Tamamlanan Görevler');
+  String get overdue => _s('Overdue', 'Gecikmiş');
+  String get systemResources => _s('System Resources', 'Sistem Kaynakları');
+  String get upcomingOverdue => _s('Upcoming & Overdue Tasks', 'Yaklaşan & Gecikmiş Görevler');
+  String get noActiveProjects => _s('No active projects', 'Aktif proje yok');
+  String get total => _s('total', 'toplam');
+  String get pending => _s('pending', 'bekliyor');
+  String get quickNotesLabel => _s('quick notes', 'hızlı not');
+  String get tasksPastDue => _s('tasks past due', 'gecikmiş görev');
   // ── Navigation ─────────────────────────────────────────────────────────────
   String get dashboard => _s('Dashboard', 'Dashboard');
   String get myProjects => _s('My Projects', 'Projelerim');
