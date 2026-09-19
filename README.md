@@ -214,4 +214,15 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
+## 📦 Download
+
+### macOS
+[![Download DMG](https://img.shields.io/badge/Download-macOS%20DMG-blue?style=for-the-badge&logo=apple)](https://github.com/Kleaopsy/NexDesk/releases/latest)
+
+Download the latest `NexDesk-1.0.0.dmg` from [Releases](https://github.com/Kleaopsy/NexDesk/releases), open it and drag NexDesk to your Applications folder.
+
+---
+
 <p align="center">Built with ❤️ using Flutter</p>
+
+
